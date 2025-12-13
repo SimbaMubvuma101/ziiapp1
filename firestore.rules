@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- HELPER FUNCTIONS ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Fetch the user's profile document to check permissions
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Admin Check: 
+    // 1. CHEAPEST/FASTEST: Checks email in auth token (Vital for bootstrapping root admin)
+    // 2. DATABASE CHECK: Checks 'isAdmin' boolean or 'role' string in Firestore User doc
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@zii.app' ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          (getUserData().isAdmin == true || getUserData().role == 'admin')
+        )
+      );
+    }
+
+    // --- COLLECTION RULES ---
+
+    // USERS: 
+    // - Users read/write their own profile
+    // - Admins can read/write any profile (Needed for Admin User Stats)
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // PREDICTIONS:
+    // - Public Read (Feed)
+    // - Admin Write (Deploy/Resolve)
+    match /predictions/{predictionId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ENTRIES (Predictions/Bets):
+    // - Users can read their own (must filter by userId)
+    // - Admins can read ALL (Fixes the "Missing Permissions" error in Admin Engine)
+    // - Users can create (place entry) if userId matches
+    // - Admins can update (resolve status)
+    // - Users can update 'celebrated' field ONLY (to mark win as seen)
+    match /entries/{entryId} {
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin() || (
+        isSignedIn() && 
+        resource.data.userId == request.auth.uid && 
+        // Strict check: Only allow changes to the 'celebrated' field
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['celebrated'])
+      ); 
+    }
+
+    // TRANSACTIONS:
+    // - Users read own
+    // - Admin read all
+    // - System/Admin creates records
+    match /transactions/{txId} {
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // VOUCHERS:
+    // - Admin creates/deletes
+    // - Users read (to validate) and update (to redeem)
+    match /vouchers/{voucherId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isSignedIn();
+    }
+
+    // AFFILIATES (Partners):
+    // - Read: Public (needed for referral code checks on register & admin dashboard)
+    // - Create/Delete: Admin only
+    // - Update: Admin (manage) OR Signed In Users (to increment volume/stats via transaction)
+    match /affiliates/{affiliateId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isSignedIn();
+    }
+  }
+}
