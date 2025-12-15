@@ -16,8 +16,8 @@ import { ReferralHandler } from './components/ReferralHandler';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <HashRouter>
+    <HashRouter>
+      <AuthProvider>
         <ReferralHandler />
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -48,8 +48,8 @@ const App: React.FC = () => {
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </HashRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </HashRouter>
   );
 };
 
