@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { X, AlertTriangle, AlertCircle } from 'lucide-react';
+import { X, AlertTriangle, AlertCircle, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface ErrorModalProps {
   title?: string;
@@ -13,6 +14,14 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
   message, 
   onClose 
 }) => {
+  const navigate = useNavigate();
+  const isInsufficientBalance = message.toLowerCase().includes('insufficient balance');
+
+  const handleAddTokens = () => {
+    onClose();
+    navigate('/wallet');
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4">
       <div className="absolute inset-0" onClick={onClose}></div>
@@ -32,12 +41,23 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
           {message}
         </p>
 
-        <button 
-          onClick={onClose}
-          className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg shadow-white/5"
-        >
-          Got It
-        </button>
+        <div className="space-y-3">
+          {isInsufficientBalance && (
+            <button 
+              onClick={handleAddTokens}
+              className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white active:scale-[0.98] transition-all shadow-lg shadow-zii-accent/20 flex items-center justify-center gap-2"
+            >
+              <Plus size={20} strokeWidth={3} /> Add Tokens
+            </button>
+          )}
+          
+          <button 
+            onClick={onClose}
+            className={`w-full ${isInsufficientBalance ? 'bg-white/5 text-white/70 hover:bg-white/10' : 'bg-white text-black hover:bg-white/90'} font-bold py-4 rounded-xl active:scale-[0.98] transition-all shadow-lg shadow-white/5`}
+          >
+            {isInsufficientBalance ? 'Maybe Later' : 'Got It'}
+          </button>
+        </div>
       </div>
     </div>
   );
