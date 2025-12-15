@@ -9,6 +9,7 @@ import { LevelUpOverlay } from '../components/LevelUpOverlay';
 import { Transaction } from '../types';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../utils/api';
+import { ErrorModal } from '../components/ErrorModal';
 
 export const Wallet: React.FC = () => {
   const { userProfile, currentUser, currencySymbol, exchangeRate, refreshUser } = useAuth();
@@ -17,6 +18,7 @@ export const Wallet: React.FC = () => {
 
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [redeemSuccess, setRedeemSuccess] = useState<{ amount: number } | null>(null);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
@@ -121,7 +123,7 @@ export const Wallet: React.FC = () => {
 
     } catch (e: any) {
       console.error("Redemption failed", e);
-      alert(e.message || "Redemption failed. Please try again.");
+      setErrorMessage(e.message || "Redemption failed. Please try again.");
     } finally {
       setIsRedeeming(false);
     }
@@ -330,6 +332,8 @@ export const Wallet: React.FC = () => {
           onClose={() => setShowCashoutModal(false)} 
         />
       )}
+
+      {errorMessage && <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />}
     </div>
   );
 };

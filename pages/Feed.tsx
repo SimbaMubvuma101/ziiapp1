@@ -8,6 +8,7 @@ import { SuccessOverlay } from '../components/SuccessOverlay';
 import { CelebrationModal } from '../components/CelebrationModal';
 import { CashoutModal } from '../components/CashoutModal';
 import { AuthPromptModal } from '../components/AuthPromptModal';
+import { ErrorModal } from '../components/ErrorModal';
 import { LevelUpOverlay } from '../components/LevelUpOverlay';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
@@ -69,6 +70,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
   // Auth Prompt State
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Pull to Refresh State
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -293,13 +295,13 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
     // Client-side deadline check
     if (new Date(selectedPrediction.closes_at) < new Date()) {
-      alert("This prediction has closed.");
+      setErrorMessage("This prediction has closed.");
       return;
     }
 
     // Client-side Duplicate Check (Optimization & Prevention)
     if (userEntries[selectedPrediction.id]) {
-      alert("You have already predicted on this event! Only one entry allowed per event.");
+      setErrorMessage("You have already predicted on this event! Only one entry allowed per event.");
       return;
     }
 
@@ -350,8 +352,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     } catch (e: any) {
       console.error("Entry failed: ", e);
       // Use the error message from the API if available
-      const errMsg = e.message || 'Failed to place entry';
-      alert(errMsg);
+      setErrorMessage(e.message || 'Failed to place entry. Please try again.');
       setIsSubmitting(false);
     }
   };
@@ -374,7 +375,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       await api.deletePrediction(id); // Assuming this endpoint exists
     } catch (err: any) {
       console.error("Delete failed", err);
-      alert(`Failed to delete: ${err.message}`);
+      setErrorMessage(`Failed to delete: ${err.message}`);
       // If deletion failed, re-fetch predictions to restore the deleted item
       // This is a fallback in case optimistic update was premature
       // For now, we'll assume the API call failing is enough to show an error
@@ -404,7 +405,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     });
   } else if (!adminMode) {
     const urlParams = getUrlParams();
-    
+
     // Filter by section: creator events vs main events
     filteredPredictions = predictions.filter(p => {
       const isCreatorEvent = !!p.created_by_creator;
@@ -637,6 +638,9 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           onClose={() => setShowCashoutModal(false)}
         />
       )}
+
+      {/* Error Modal */}
+      {errorMessage && <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />}
     </div>
   );
 };

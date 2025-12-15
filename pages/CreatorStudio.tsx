@@ -6,6 +6,7 @@ import { Zap, Star, Copy, CheckCircle, AlertTriangle, Trophy, ArrowLeft, Share2 
 import { PredictionType, PredictionStatus, Prediction, UserEntry } from '../types';
 import { calculateAMMOdds } from '../utils/amm';
 import { api } from '../utils/api';
+import { ErrorModal } from '../components/ErrorModal';
 
 export const CreatorStudio: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
@@ -16,6 +17,7 @@ export const CreatorStudio: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Create Form
   const [question, setQuestion] = useState('');
@@ -67,6 +69,7 @@ export const CreatorStudio: React.FC = () => {
         setTotalEarnings(earnings);
       } catch (err) {
         console.error('Failed to fetch creator events:', err);
+        setErrorMessage('Failed to fetch your events. Please try again later.');
       }
     };
 
@@ -87,6 +90,7 @@ export const CreatorStudio: React.FC = () => {
         setPredEntries(predEntries);
       } catch (err) {
         console.error('Failed to load entries:', err);
+        setErrorMessage('Failed to load entries for this event. Please try again later.');
       }
     };
 
@@ -146,9 +150,9 @@ export const CreatorStudio: React.FC = () => {
       const events = await api.getPredictions({ creatorId: currentUser!.uid });
       events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
       setMyEvents(events);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setStatusMsg(`Failed: ${errorMessage}`);
+    } catch (err: any) {
+      console.error('Failed to create prediction:', err);
+      setErrorMessage(err.message || 'Failed to create prediction');
     } finally {
       setLoading(false);
     }
@@ -169,7 +173,7 @@ export const CreatorStudio: React.FC = () => {
       setMyEvents(events);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setStatusMsg(`Failed: ${errorMessage}`);
+      setErrorMessage(`Failed to resolve event: ${errorMessage}`);
     } finally {
       setLoading(false);
       setConfirmStep(0);
@@ -253,12 +257,12 @@ export const CreatorStudio: React.FC = () => {
                 <label className="text-[10px] uppercase font-bold text-white/40">Select Winner</label>
                 <div className="grid grid-cols-1 gap-2">
                   {selectedPred.options.map(opt => (
-                    <button 
-                      key={opt.id} 
+                    <button
+                      key={opt.id}
                       onClick={() => setWinningOption(opt.id)}
                       className={`p-4 rounded-xl text-left transition-all ${
-                        winningOption === opt.id 
-                          ? 'bg-zii-accent text-black border border-zii-accent' 
+                        winningOption === opt.id
+                          ? 'bg-zii-accent text-black border border-zii-accent'
                           : 'bg-black/20 border border-white/5 text-white/70 hover:bg-black/40'
                       }`}
                     >
@@ -274,12 +278,12 @@ export const CreatorStudio: React.FC = () => {
                     <span className="text-xs text-white/50">Your Commission</span>
                     <span className="text-xl font-bold font-mono text-green-400">+${creatorCommission.toFixed(2)}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={() => confirmStep === 1 ? handleResolve() : setConfirmStep(1)}
                     disabled={loading}
                     className={`w-full py-4 font-bold rounded-xl transition-all ${
-                      confirmStep === 1 
-                        ? 'bg-red-500 text-white hover:bg-red-600' 
+                      confirmStep === 1
+                        ? 'bg-red-500 text-white hover:bg-red-600'
                         : 'bg-white text-black hover:bg-zii-accent'
                     }`}
                   >
@@ -313,8 +317,8 @@ export const CreatorStudio: React.FC = () => {
 
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-start gap-3 text-xs font-bold ${
-            statusMsg.includes('Failed') 
-              ? 'bg-red-500/10 border border-red-500/20 text-red-400' 
+            statusMsg.includes('Failed')
+              ? 'bg-red-500/10 border border-red-500/20 text-red-400'
               : 'bg-zii-accent/10 border border-zii-accent/20 text-zii-accent'
           }`}>
             {statusMsg.includes('Failed') ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
@@ -418,10 +422,10 @@ export const CreatorStudio: React.FC = () => {
               <div className="space-y-3">
                 <div>
                   <label className="text-[10px] text-white/40 uppercase font-bold pl-1">Question</label>
-                  <textarea 
-                    required 
-                    rows={2} 
-                    value={question} 
+                  <textarea
+                    required
+                    rows={2}
+                    value={question}
                     onChange={e => setQuestion(e.target.value)}
                     className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm resize-none focus:outline-none focus:border-zii-accent/50"
                     placeholder="e.g. Will it rain tomorrow?"
@@ -431,8 +435,8 @@ export const CreatorStudio: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-white/40 uppercase font-bold pl-1">Category</label>
-                    <select 
-                      value={category} 
+                    <select
+                      value={category}
                       onChange={e => setCategory(e.target.value)}
                       className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50"
                     >
@@ -446,9 +450,9 @@ export const CreatorStudio: React.FC = () => {
 
                   <div>
                     <label className="text-[10px] text-white/40 uppercase font-bold pl-1">Closes</label>
-                    <input 
-                      type="datetime-local" 
-                      value={closingTime} 
+                    <input
+                      type="datetime-local"
+                      value={closingTime}
                       onChange={e => setClosingTime(e.target.value)}
                       className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50 [color-scheme:dark]"
                     />
@@ -457,9 +461,9 @@ export const CreatorStudio: React.FC = () => {
 
                 <div>
                   <label className="text-[10px] text-white/40 uppercase font-bold pl-1">Resolution Source</label>
-                  <input 
-                    type="text" 
-                    value={resolutionSource} 
+                  <input
+                    type="text"
+                    value={resolutionSource}
                     onChange={e => setResolutionSource(e.target.value)}
                     className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50"
                     placeholder="e.g. Official Twitter"
@@ -468,9 +472,9 @@ export const CreatorStudio: React.FC = () => {
 
                 <div className="space-y-2 pt-2 border-t border-white/5">
                   <label className="text-[10px] text-white/40 uppercase font-bold pl-1">Question Type</label>
-                  <select 
-                    value={deployType} 
-                    onChange={(e) => setDeployType(e.target.value as PredictionType)} 
+                  <select
+                    value={deployType}
+                    onChange={(e) => setDeployType(e.target.value as PredictionType)}
                     className="w-full bg-black/20 border border-white/10 text-white p-3 rounded-xl text-sm font-bold focus:outline-none focus:border-zii-accent/50"
                   >
                     <option value={PredictionType.YES_NO}>Yes / No (Binary)</option>
@@ -482,8 +486,8 @@ export const CreatorStudio: React.FC = () => {
                   <label className="text-[10px] text-white/40 uppercase font-bold">Options Configuration</label>
                   {options.map((opt, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
-                      <input 
-                        value={opt.label} 
+                      <input
+                        value={opt.label}
                         onChange={e => {
                           const newOpts = [...options];
                           newOpts[idx].label = e.target.value;
@@ -501,7 +505,7 @@ export const CreatorStudio: React.FC = () => {
               </div>
             </div>
 
-            <button 
+            <button
               disabled={loading}
               className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all flex items-center justify-center gap-2"
             >
@@ -520,7 +524,7 @@ export const CreatorStudio: React.FC = () => {
                       <h3 className="font-bold text-white text-sm mb-1">{event.question}</h3>
                       <p className="text-xs text-white/40">{event.status}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => copyEventLink(event.id)}
                       className="bg-white/5 p-2 rounded-lg hover:bg-white/10 transition-colors"
                     >
@@ -529,7 +533,7 @@ export const CreatorStudio: React.FC = () => {
                   </div>
 
                   {event.status === PredictionStatus.CLOSED && (
-                    <button 
+                    <button
                       onClick={() => setSelectedPred(event)}
                       className="w-full bg-zii-accent/10 text-zii-accent font-bold py-2 rounded-lg hover:bg-zii-accent/20 transition-all text-sm"
                     >
@@ -542,6 +546,8 @@ export const CreatorStudio: React.FC = () => {
           </div>
         )}
       </div>
+
+      {errorMessage && <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />}
     </div>
   );
 };
