@@ -62,10 +62,16 @@ export const CreatorInvitePage: React.FC = () => {
     setError('');
 
     try {
-      await api.claimCreatorInvite(code, email, password);
+      const response = await api.claimCreatorInvite(code, email, password);
+      
+      // The API returns a token, so we need to store it
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
+      }
+      
       setSuccess(true);
       
-      // Redirect to creator studio after 1 second
+      // Redirect to creator studio after brief delay
       setTimeout(() => {
         window.location.href = '/#/creator/studio';
       }, 1000);
