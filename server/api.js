@@ -476,17 +476,74 @@ router.post('/wallet/redeem', authenticateMiddleware, async (req, res) => {
 
 router.get('/admin/stats', authenticateMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const stats = await pool.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users) as total_users,
-        (SELECT COUNT(*) FROM predictions WHERE status = 'open') as active_predictions,
-        (SELECT SUM(pool_size) FROM predictions WHERE status = 'open') as total_pool,
-        (SELECT COUNT(*) FROM entries WHERE created_at > NOW() - INTERVAL '24 hours') as entries_24h
-    `);
-    res.json(stats.rows[0]);
+    const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
+    const predCount = await pool.query('SELECT COUNT(*) as count FROM predictions');
+    res.json({ 
+      users: parseInt(userCount.rows[0].count), 
+      predictions: parseInt(predCount.rows[0].count) 
+    });
   } catch (err) {
     console.error('Get stats error:', err);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+router.get('/admin/analytics', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    // Get transaction totals
+    const entryVolume = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'entry'
+    `);
+    const cashoutVolume = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'cashout'
+    `);
+    const txCount = await pool.query('SELECT COUNT(*) as count FROM transactions');
+    
+    // Get fee calculations (5% entry, 10% cashout)
+    const entryFees = parseFloat(entryVolume.rows[0].total) * 0.05;
+    const cashoutFees = parseFloat(cashoutVolume.rows[0].total) * 0.10;
+    
+    // Time-based volume calculations
+    const volumeToday = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions 
+      WHERE created_at >= CURRENT_DATE
+    `);
+    const volumeWeek = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions 
+      WHERE created_at >= DATE_TRUNC('week', CURRENT_DATE)
+    `);
+    const volumeMonth = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions 
+      WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)
+    `);
+    
+    // Revenue calculations
+    const revenueToday = parseFloat(volumeToday.rows[0].total) * 0.05;
+    const revenueWeek = parseFloat(volumeWeek.rows[0].total) * 0.05;
+    const revenueMonth = parseFloat(volumeMonth.rows[0].total) * 0.05;
+    
+    const totalVolume = parseFloat(entryVolume.rows[0].total) + parseFloat(cashoutVolume.rows[0].total);
+    const totalRevenue = entryFees + cashoutFees;
+    
+    res.json({
+      totalRevenue,
+      entryFees,
+      cashoutFees,
+      revenueToday,
+      revenueWeek,
+      revenueMonth,
+      avgMonthlyRevenue: revenueMonth,
+      totalVolume,
+      entryVolume: parseFloat(entryVolume.rows[0].total),
+      cashoutVolume: parseFloat(cashoutVolume.rows[0].total),
+      volumeToday: parseFloat(volumeToday.rows[0].total),
+      volumeWeek: parseFloat(volumeWeek.rows[0].total),
+      volumeMonth: parseFloat(volumeMonth.rows[0].total),
+      txCount: parseInt(txCount.rows[0].count) || 1
+    });
+  } catch (err) {
+    console.error('Get analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
 
