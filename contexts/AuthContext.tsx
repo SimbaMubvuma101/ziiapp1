@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Fetch platform settings
-        const settings = await api.getSettings();
+        const settings = await api.getSettings() as PlatformSettings;
         setPlatformSettings(settings);
       } catch (err) {
         console.error('Auth initialization error:', err);

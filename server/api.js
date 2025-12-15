@@ -289,6 +289,36 @@ router.post('/predictions/:id/resolve', authenticateMiddleware, adminMiddleware,
   }
 });
 
+router.delete('/predictions/:id', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+
+    await client.query('BEGIN');
+
+    // Check if prediction exists
+    const predResult = await client.query('SELECT * FROM predictions WHERE id = $1', [id]);
+    if (predResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Prediction not found' });
+    }
+
+    // Delete associated entries first
+    await client.query('DELETE FROM entries WHERE prediction_id = $1', [id]);
+
+    // Delete the prediction
+    await client.query('DELETE FROM predictions WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Prediction deleted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Delete prediction error:', err);
+    res.status(500).json({ error: 'Failed to delete prediction' });
+  } finally {
+    client.release();
+  }
+});
+
 // ============ ENTRIES ROUTES ============
 
 router.get('/entries', authenticateMiddleware, async (req, res) => {

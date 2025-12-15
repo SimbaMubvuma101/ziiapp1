@@ -216,7 +216,7 @@ export const AdminEngine: React.FC = () => {
 
   const fetchStats = async () => {
      try {
-         const statsData = await api.getAdminStats();
+         const statsData = await api.getAdminStats() as { users: number; predictions: number };
          setStats(statsData);
      } catch (e) { console.warn(e); }
   };
@@ -233,7 +233,7 @@ export const AdminEngine: React.FC = () => {
   const fetchAnalytics = async () => {
       setLoading(true);
       try {
-          const data = await api.getAnalytics();
+          const data = await api.getAnalytics() as typeof analyticsData;
           setAnalyticsData(data);
       } catch (err) {
           console.error("Analytics Error", err);
@@ -279,7 +279,7 @@ export const AdminEngine: React.FC = () => {
           const invite = await api.createCreatorInvite({
               name: newCreatorName,
               country: newCreatorCountry
-          });
+          }) as { code: string };
 
           setStatusMsg("Creator Invite Generated!");
 

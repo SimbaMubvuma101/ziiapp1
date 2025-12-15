@@ -98,13 +98,18 @@ export const Wallet: React.FC = () => {
     setIsRedeeming(true);
 
     try {
-      const result = await api.redeemVoucher(voucherCode.trim());
+      const result = await api.redeemVoucher(voucherCode.trim()) as { 
+        leveledUp?: boolean; 
+        newLevel?: number; 
+        rewardAmount?: number; 
+        amount: number 
+      };
 
       setVoucherCode('');
 
       if (result.leveledUp) {
         setNewLevelData({ 
-          level: result.newLevel, 
+          level: result.newLevel!, 
           reward: result.rewardAmount ? (result.rewardAmount * exchangeRate) : undefined 
         });
       } else {

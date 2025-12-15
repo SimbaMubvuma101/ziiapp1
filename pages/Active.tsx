@@ -109,7 +109,7 @@ export const Active: React.FC = () => {
                   <Clock size={10} /> Closes
                 </p>
                 <p className="text-xs font-bold text-white/70">
-                  {getTimeRemaining(entry.created_at)}
+                  {getTimeRemaining(entry.created_at || '')}
                 </p>
               </div>
             </div>

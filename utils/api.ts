@@ -134,6 +134,12 @@ class ApiClient {
     });
   }
 
+  async deletePrediction(id: string) {
+    return this.request(`/predictions/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Entries
   async getEntries(status?: string) {
     const params = status ? `?status=${status}` : '';
