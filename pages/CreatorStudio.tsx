@@ -50,17 +50,6 @@ export const CreatorStudio: React.FC = () => {
       navigate('/earn');
       return;
     }
-    
-    // CRITICAL: Only redirect if profile has fully loaded AND user is definitely not a creator
-    // If userProfile is null (still loading), don't redirect - wait for it to load
-    if (userProfile !== null && userProfile !== undefined) {
-      if (!userProfile.isCreator) {
-        console.log('User is not a creator, redirecting to /earn');
-        navigate('/earn');
-        return;
-      }
-      console.log('Creator verified:', userProfile.creator_name);
-    }
 
     const getFutureDate = (hours: number) => {
       const d = new Date();
@@ -253,8 +242,9 @@ export const CreatorStudio: React.FC = () => {
     setStatusMsg(`Link copied!`);
   };
 
-  // Show loader while profile is still loading
-  if (!userProfile) {
+  // CRITICAL: Show loader while profile is loading OR if user is logged in but profile hasn't loaded yet
+  // This prevents the redirect logic from running before we know if user is a creator
+  if (!userProfile && currentUser) {
     return (
       <div className="min-h-screen bg-zii-bg flex items-center justify-center">
         <Loader size={50} className="text-zii-accent" />
@@ -262,7 +252,10 @@ export const CreatorStudio: React.FC = () => {
     );
   }
   
-  if (!userProfile.isCreator) return null;
+  // Only redirect if we have confirmed the user is NOT a creator
+  if (userProfile && !userProfile.isCreator) {
+    return null;
+  }
 
   if (selectedPred) {
     const totalVolume = predEntries.reduce((acc, curr) => acc + (curr.amount || 0), 0);
