@@ -25,6 +25,11 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   const { userProfile, currentUser, isAdmin: authIsAdmin, userCountry } = useAuth();
   const effectiveIsAdmin = adminMode || authIsAdmin;
 
+  // Get URL params for creator event links
+  const [searchParams] = new URLSearchParams(window.location.hash.split('?')[1] || '');
+  const eventIdParam = searchParams.get('event');
+  const tabParam = searchParams.get('tab');
+
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +42,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   const [selectedEntryPrediction, setSelectedEntryPrediction] = useState<Prediction | null>(null); // For detail context (countdown)
 
   const [activeTab, setActiveTab] = useState('All');
-  const [feedSection, setFeedSection] = useState<'main' | 'creator'>('main');
+  const [feedSection, setFeedSection] = useState<'main' | 'creator'>(tabParam === 'creator' ? 'creator' : 'main');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -238,15 +243,15 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
   // 3. Handle Card Click
   const handleCardClick = (pred: Prediction) => {
-    // GUEST CHECK: Prompt to join if not logged in
-    if (!currentUser && !adminMode) {
-      setShowAuthPrompt(true);
-      return;
-    }
-
     // Admin Override: Always open for management
     if (adminMode && onPredictionClick) {
       onPredictionClick(pred);
+      return;
+    }
+
+    // GUEST CHECK: Prompt to join if not logged in
+    if (!currentUser) {
+      setShowAuthPrompt(true);
       return;
     }
 
@@ -384,15 +389,20 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       return false; // Should not happen with valid filters
     });
   } else if (!adminMode) {
-    // Filter by section: creator events vs main events
-    filteredPredictions = predictions.filter(p => {
-      const isCreatorEvent = !!p.created_by_creator;
-      return feedSection === 'creator' ? isCreatorEvent : !isCreatorEvent;
-    });
+    // If specific event ID provided, show only that event
+    if (eventIdParam) {
+      filteredPredictions = predictions.filter(p => p.id === eventIdParam);
+    } else {
+      // Filter by section: creator events vs main events
+      filteredPredictions = predictions.filter(p => {
+        const isCreatorEvent = !!p.created_by_creator;
+        return feedSection === 'creator' ? isCreatorEvent : !isCreatorEvent;
+      });
 
-    // Then filter by category if not 'All'
-    if (activeTab !== 'All') {
-      filteredPredictions = filteredPredictions.filter(p => p.category === activeTab);
+      // Then filter by category if not 'All'
+      if (activeTab !== 'All') {
+        filteredPredictions = filteredPredictions.filter(p => p.category === activeTab);
+      }
     }
   }
 
@@ -448,11 +458,17 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       )}
 
       {/* Feed Section Toggle (Hide in Admin Mode) */}
-      {!adminMode && (
+      {!adminMode && !eventIdParam && (
         <div className="mb-6">
           <div className="flex p-1 bg-white/5 rounded-xl border border-white/5">
             <button
-              onClick={() => setFeedSection('main')}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthPrompt(true);
+                  return;
+                }
+                setFeedSection('main');
+              }}
               className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
                 feedSection === 'main'
                   ? 'bg-zii-card text-white shadow-sm'
@@ -462,7 +478,13 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
               Main Events
             </button>
             <button
-              onClick={() => setFeedSection('creator')}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthPrompt(true);
+                  return;
+                }
+                setFeedSection('creator');
+              }}
               className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
                 feedSection === 'creator'
                   ? 'bg-zii-card text-white shadow-sm'
@@ -475,14 +497,20 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         </div>
       )}
 
-      {/* Category Tabs (Hide in Admin Mode) */}
-      {!adminMode && (
+      {/* Category Tabs (Hide in Admin Mode and when showing specific event) */}
+      {!adminMode && !eventIdParam && (
         <div className="mb-8">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 snap-x">
             {tabs.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setActiveTab(cat)}
+                onClick={() => {
+                  if (!currentUser) {
+                    setShowAuthPrompt(true);
+                    return;
+                  }
+                  setActiveTab(cat);
+                }}
                 className={`snap-start whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all duration-300 border border-transparent flex-shrink-0 ${
                   activeTab === cat
                     ? 'bg-white text-black shadow-md shadow-white/5'

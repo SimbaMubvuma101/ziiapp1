@@ -178,9 +178,9 @@ export const CreatorStudio: React.FC = () => {
 
   const copyEventLink = (eventId: string) => {
     const baseUrl = window.location.origin;
-    const link = `${baseUrl}/#/earn`;
+    const link = `${baseUrl}/#/earn?event=${eventId}&tab=creator`;
     navigator.clipboard.writeText(link);
-    setStatusMsg(`Link copied! Event will show in main feed.`);
+    setStatusMsg(`Link copied! Share with your audience.`);
   };
 
   // CRITICAL: Show loader while profile is loading OR if user is logged in but profile hasn't loaded yet
