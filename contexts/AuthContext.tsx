@@ -135,8 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     isAdmin: user.email === 'admin@zii.app',
                     country: userCountry // Save the initially detected/selected country
                 });
-                // Small delay to ensure Firestore write completes
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Longer delay to ensure Firestore write fully completes and syncs
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } else {
                 // If user exists, sync local state to DB state
                 const data = docSnap.data();

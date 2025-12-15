@@ -207,11 +207,11 @@ export const CreatorInvitePage: React.FC = () => {
 
       setSuccess(true);
       
-      // Wait longer for Firestore to sync, then redirect
+      // Force immediate full page reload to creator studio
+      // This ensures AuthContext fully re-initializes with the new creator profile
       setTimeout(() => {
-        window.location.href = window.location.origin + '/#/creator/studio';
-        window.location.reload();
-      }, 3000);
+        window.location.replace(window.location.origin + '/#/creator/studio');
+      }, 2500);
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
