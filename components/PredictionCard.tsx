@@ -92,6 +92,12 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ prediction, onSe
             </span>
             {/* Country Badge */}
             {flag && <span className="text-xs opacity-50 grayscale group-hover:grayscale-0 transition-all" title={prediction.country}>{flag}</span>}
+            {/* Creator Badge */}
+            {prediction.created_by_creator && prediction.creator_name && (
+              <span className="px-2 py-0.5 rounded bg-purple-500/10 text-[9px] uppercase font-bold tracking-wide text-purple-300 whitespace-nowrap border border-purple-500/20 flex-shrink-0">
+                Sponsored by {prediction.creator_name}
+              </span>
+            )}
         </div>
         
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
