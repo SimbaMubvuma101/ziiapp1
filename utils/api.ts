@@ -1,4 +1,3 @@
-
 const API_BASE = '/api';
 
 interface ApiResponse<T = any> {
@@ -8,6 +7,7 @@ interface ApiResponse<T = any> {
 
 class ApiClient {
   private token: string | null = null;
+  private baseUrl: string = API_BASE; // Added baseUrl property
 
   constructor() {
     this.token = localStorage.getItem('auth_token');
@@ -21,6 +21,16 @@ class ApiClient {
   clearToken() {
     this.token = null;
     localStorage.removeItem('auth_token');
+  }
+
+  private getHeaders(): HeadersInit { // Helper method to get headers
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    return headers;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -40,15 +50,15 @@ class ApiClient {
       });
 
       const contentType = response.headers.get('content-type');
-      
+
       // Check if response is JSON
       if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(data.error || `Request failed with status ${response.status}`);
         }
-        
+
         return data;
       } else {
         // Handle non-JSON responses
@@ -65,12 +75,12 @@ class ApiClient {
   }
 
   // Auth
-  async register(userData: { 
-    name: string; 
-    email: string; 
-    password: string; 
-    phone?: string; 
-    referralCode?: string; 
+  async register(userData: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    referralCode?: string;
     affiliateId?: string;
     country?: string;
   }) {
@@ -109,11 +119,11 @@ class ApiClient {
   }
 
   // Predictions
-  async getPredictions(filters: { 
-    status?: string; 
-    category?: string; 
-    country?: string; 
-    creatorId?: string; 
+  async getPredictions(filters: {
+    status?: string;
+    category?: string;
+    country?: string;
+    creatorId?: string;
     eventId?: string;
   } = {}) {
     const params = new URLSearchParams(filters as any);
@@ -146,9 +156,9 @@ class ApiClient {
     return this.request<any[]>(`/entries${params}`);
   }
 
-  async placeEntry(entryData: { 
-    prediction_id: string; 
-    selected_option_id: string; 
+  async placeEntry(entryData: {
+    prediction_id: string;
+    selected_option_id: string;
     amount: number;
   }) {
     return this.request('/entries', {
@@ -233,11 +243,29 @@ class ApiClient {
     return this.request(`/creator-invites/validate/${code}`);
   }
 
-  async claimCreatorInvite(code: string) {
-    return this.request('/creator-invites/claim', {
+  // Updated claimCreatorInvite to accept credentials and handle login
+  async claimCreatorInvite(code: string, email: string, password: string): Promise<{ token: string; user: any }> {
+    const response = await fetch(`${this.baseUrl}/creator-invites/claim`, {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ code, email, password })
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to claim invite');
+    }
+
+    const data = await response.json();
+
+    // Store the token
+    if (data.token) {
+      this.setToken(data.token);
+    }
+
+    return data;
   }
 
   // Stripe/Payment endpoints

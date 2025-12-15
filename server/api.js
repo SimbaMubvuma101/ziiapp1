@@ -637,10 +637,14 @@ router.get('/creator-invites/validate/:code', async (req, res) => {
   }
 });
 
-router.post('/creator-invites/claim', authenticateMiddleware, async (req, res) => {
+router.post('/creator-invites/claim', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { code } = req.body;
+    const { code, email, password } = req.body;
+
+    if (!email || !password) {
+      throw new Error('Email and password are required');
+    }
 
     await client.query('BEGIN');
 
@@ -655,24 +659,67 @@ router.post('/creator-invites/claim', authenticateMiddleware, async (req, res) =
 
     const invite = inviteResult.rows[0];
 
-    await client.query(
-      'UPDATE creator_invites SET status = $1, claimed_by = $2, claimed_at = CURRENT_TIMESTAMP WHERE id = $3',
-      ['claimed', req.user.uid, invite.id]
+    // Check if user already exists
+    const existingUser = await client.query(
+      'SELECT uid FROM users WHERE email = $1',
+      [email]
     );
 
+    let userId;
+
+    if (existingUser.rows.length > 0) {
+      // User exists, just upgrade them to creator
+      userId = existingUser.rows[0].uid;
+      
+      await client.query(
+        `UPDATE users SET 
+         is_creator = true, 
+         creator_name = $1, 
+         creator_country = $2,
+         total_events_created = COALESCE(total_events_created, 0),
+         total_commission_earned = COALESCE(total_commission_earned, 0)
+         WHERE uid = $3`,
+        [invite.name, invite.country, userId]
+      );
+    } else {
+      // Create new user account
+      userId = crypto.randomUUID();
+      const hashedPassword = await hashPassword(password);
+
+      await client.query(
+        `INSERT INTO users (
+          uid, email, password_hash, name, phone, country,
+          is_creator, creator_name, creator_country,
+          balance, total_wagered, total_won, level, xp,
+          email_verified, is_admin, total_events_created, total_commission_earned
+        ) VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, 0, 0, 0, 1, 0, true, false, 0, 0)`,
+        [userId, email, hashedPassword, invite.name, '', invite.country, invite.name, invite.country]
+      );
+    }
+
+    // Mark invite as claimed
     await client.query(
-      `UPDATE users SET 
-       is_creator = true, 
-       creator_name = $1, 
-       creator_country = $2,
-       total_events_created = 0,
-       total_commission_earned = 0
-       WHERE uid = $3`,
-      [invite.name, invite.country, req.user.uid]
+      'UPDATE creator_invites SET status = $1, claimed_by = $2, claimed_at = CURRENT_TIMESTAMP WHERE id = $3',
+      ['claimed', userId, invite.id]
     );
 
     await client.query('COMMIT');
-    res.json({ message: 'Creator invite claimed' });
+
+    // Generate auth token
+    const token = generateToken({ uid: userId, email, isAdmin: false });
+
+    res.json({ 
+      message: 'Creator invite claimed',
+      token,
+      user: {
+        uid: userId,
+        email,
+        name: invite.name,
+        isCreator: true,
+        creator_name: invite.name,
+        creator_country: invite.country
+      }
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Claim invite error:', err);

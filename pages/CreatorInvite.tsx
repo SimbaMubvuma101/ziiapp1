@@ -16,6 +16,9 @@ export const CreatorInvitePage: React.FC = () => {
   const [invite, setInvite] = useState<any>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const code = searchParams.get('code');
 
@@ -23,12 +26,6 @@ export const CreatorInvitePage: React.FC = () => {
     if (!code) {
       setError('Invalid invite link');
       setLoading(false);
-      return;
-    }
-
-    if (!currentUser) {
-      // Redirect to register with invite code
-      navigate(`/register?invite=${code}`);
       return;
     }
 
@@ -45,22 +42,33 @@ export const CreatorInvitePage: React.FC = () => {
     };
 
     validateInvite();
-  }, [code, currentUser, navigate]);
+  }, [code, navigate]);
 
-  const handleClaim = async () => {
-    if (!code) return;
+  const handleClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code || !email || !password) return;
+    
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
     
     setClaiming(true);
     setError('');
 
     try {
-      await api.claimCreatorInvite(code);
+      await api.claimCreatorInvite(code, email, password);
       setSuccess(true);
       
-      // Redirect to creator studio after 2 seconds
+      // Redirect to creator studio after 1 second
       setTimeout(() => {
-        navigate('/creator/studio');
-      }, 2000);
+        window.location.href = '/#/creator/studio';
+      }, 1000);
     } catch (err: any) {
       setError(err.message || 'Failed to claim invite');
       setClaiming(false);
@@ -142,13 +150,51 @@ export const CreatorInvitePage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleClaim}
-          disabled={claiming}
-          className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all shadow-lg shadow-zii-accent/20 flex items-center justify-center gap-2"
-        >
-          {claiming ? <Loader className="text-black" /> : <><Star size={20} /> Claim Creator Status</>}
-        </button>
+        <form onSubmit={handleClaim} className="space-y-4 mb-6">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
+              placeholder="your@email.com"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1">Confirm Password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={claiming}
+            className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all shadow-lg shadow-zii-accent/20 flex items-center justify-center gap-2"
+          >
+            {claiming ? <Loader className="text-black" /> : <><Star size={20} /> Claim Creator Status</>}
+          </button>
+        </form>
 
         {error && (
           <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
