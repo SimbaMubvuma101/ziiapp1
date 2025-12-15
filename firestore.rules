@@ -48,9 +48,11 @@ service cloud.firestore {
     // PREDICTIONS:
     // - Public Read (Feed)
     // - Admin Write (Deploy/Resolve)
+    // - Creators can create their own events
     match /predictions/{predictionId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() || (isSignedIn() && getUserData().isCreator == true);
+      allow update, delete: if isAdmin();
     }
 
     // ENTRIES (Predictions/Bets):
