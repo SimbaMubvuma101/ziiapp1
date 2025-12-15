@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { CreditCard, Loader as LoaderIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -50,7 +50,8 @@ export const StripeCheckout: React.FC<StripeCheckoutProps> = ({ coins, costUsd, 
       // Redirect to Stripe Checkout
       const stripe = await stripePromise;
       if (stripe) {
-        const { error } = await stripe.redirectToCheckout({ sessionId });
+        // Use the newer Stripe session redirect method
+        const { error } = await (stripe as any).redirectToCheckout({ sessionId });
         if (error) {
           console.error('Stripe redirect error:', error);
           alert('Payment failed. Please try again.');

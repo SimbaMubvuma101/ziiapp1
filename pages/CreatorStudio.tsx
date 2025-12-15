@@ -55,6 +55,7 @@ export const CreatorStudio: React.FC = () => {
     setClosingTime(getFutureDate(24));
 
     // Subscribe to creator's events
+    if (!currentUser?.uid) return;
     const q = query(collection(db, "predictions"), where("created_by_creator", "==", currentUser.uid));
     const unsub = onSnapshot(q, (snapshot) => {
       const events = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Prediction[];
@@ -359,7 +360,7 @@ export const CreatorStudio: React.FC = () => {
               <Star className="text-zii-accent" size={24} /> Creator Studio
             </h1>
             <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-              {userProfile.creator_name}
+              {userProfile?.creator_name}
             </p>
           </div>
           <button onClick={() => navigate('/earn')} className="text-white/60 hover:text-white">
