@@ -71,10 +71,10 @@ export const CreatorInvitePage: React.FC = () => {
       
       setSuccess(true);
       
-      // Redirect to creator studio after brief delay
+      // Redirect to creator studio with full page reload to reinitialize auth
       setTimeout(() => {
         window.location.href = '/#/creator/studio';
-      }, 1000);
+      }, 1500);
     } catch (err: any) {
       setError(err.message || 'Failed to claim invite');
       setClaiming(false);
