@@ -585,6 +585,98 @@ router.post('/creator-invites/claim', authenticateMiddleware, async (req, res) =
   }
 });
 
+// ============ PROFILE UPDATE ============
+
+router.put('/auth/profile', authenticateMiddleware, async (req, res) => {
+  try {
+    const { name, phone, country } = req.body;
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (name) {
+      updates.push(`name = $${paramIndex++}`);
+      params.push(name);
+    }
+    if (phone) {
+      updates.push(`phone_number = $${paramIndex++}`);
+      params.push(phone);
+    }
+    if (country) {
+      updates.push(`country = $${paramIndex++}`);
+      params.push(country);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    params.push(req.user.uid);
+    await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE uid = $${paramIndex}`,
+      params
+    );
+
+    res.json({ message: 'Profile updated' });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// ============ DELETE ACCOUNT ============
+
+router.delete('/auth/delete-account', authenticateMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Delete user's entries
+    await client.query('DELETE FROM entries WHERE user_id = $1', [req.user.uid]);
+    
+    // Delete user's transactions
+    await client.query('DELETE FROM transactions WHERE user_id = $1', [req.user.uid]);
+    
+    // Delete user
+    await client.query('DELETE FROM users WHERE uid = $1', [req.user.uid]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Account deleted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Delete account error:', err);
+    res.status(500).json({ error: 'Failed to delete account' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============ AFFILIATE VALIDATION ============
+
+router.get('/affiliates/validate', async (req, res) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'Code is required' });
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM affiliates WHERE code = $1',
+      [code.toUpperCase()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Affiliate not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Validate affiliate error:', err);
+    res.status(500).json({ error: 'Failed to validate affiliate' });
+  }
+});
+
 // ============ CASHOUT ============
 
 router.post('/wallet/cashout', authenticateMiddleware, async (req, res) => {

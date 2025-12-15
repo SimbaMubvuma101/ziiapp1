@@ -6,9 +6,7 @@ import { AuthPromptModal } from './AuthPromptModal';
 import { WHATSAPP_PHONE, SUPPORTED_COUNTRIES } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
-import { updateProfile, deleteUser } from 'firebase/auth';
-import { db } from '../firebase';
+import { api } from '../utils/api';
 import { Loader } from './Loader';
 import { getLevelProgress } from '../utils/gamification';
 
@@ -39,23 +37,28 @@ export const TopBar: React.FC = () => {
   // ID Copy State
   const [idCopied, setIdCopied] = useState(false);
 
-  // 1. Sync Data from Firestore
+  // 1. Sync Data from API (replaces Firebase realtime)
   useEffect(() => {
     if (!currentUser) {
         setUserData(null);
         return;
     }
     
-    // Subscribe to real-time updates
-    const unsub = onSnapshot(doc(db, "users", currentUser.uid), (doc) => {
-        if (doc.exists()) {
-            setUserData(doc.data());
-        }
-    }, (error) => {
-        console.error("TopBar Profile Snapshot Error:", error);
-    });
+    // Initial fetch
+    const fetchUserData = async () => {
+      try {
+        const user = await api.getCurrentUser();
+        setUserData(user);
+      } catch (error) {
+        console.error("TopBar Profile Fetch Error:", error);
+      }
+    };
 
-    return () => unsub();
+    fetchUserData();
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchUserData, 30000);
+    return () => clearInterval(interval);
   }, [currentUser]);
 
   // Derived values
@@ -98,15 +101,15 @@ export const TopBar: React.FC = () => {
     
     setIsSaving(true);
     try {
-      // 1. Update Firestore
-      await updateDoc(doc(db, "users", currentUser.uid), {
+      await api.updateProfile({
         name: editName,
-        phoneNumber: editPhone
+        phone: editPhone
       });
-      // 2. Update Auth
-      await updateProfile(currentUser, {
-        displayName: editName
-      });
+      
+      // Refresh user data
+      const updatedUser = await api.getCurrentUser();
+      setUserData(updatedUser);
+      
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile", error);
@@ -126,18 +129,21 @@ export const TopBar: React.FC = () => {
      if (!currentUser) return;
      setIsSaving(true);
      try {
-        // 1. Delete Firestore Data
-        await deleteDoc(doc(db, "users", currentUser.uid));
-        // 2. Delete Auth User
-        await deleteUser(currentUser);
-        // Auth state change will handle redirect, but we force nav just in case
+        // Delete account via API
+        await fetch('/api/auth/delete-account', {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        // Clear token and redirect
+        api.clearToken();
         navigate('/login');
      } catch (error: any) {
         console.error("Error deleting account", error);
-        if (error.code === 'auth/requires-recent-login') {
-            alert("For security, please log out and log in again before deleting your account.");
-            handleLogout();
-        }
+        alert("Failed to delete account. Please try again or contact support.");
      } finally {
         setIsSaving(false);
      }

@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Handshake } from 'lucide-react';
 
 export const ReferralHandler: React.FC = () => {
@@ -16,22 +14,18 @@ export const ReferralHandler: React.FC = () => {
 
       if (refCode) {
         try {
-          // 1. Validate Code in DB
-          const q = query(collection(db, "affiliates"), where("code", "==", refCode.toUpperCase()));
-          const snapshot = await getDocs(q);
-
-          if (!snapshot.empty) {
-            const partnerName = snapshot.docs[0].data().name;
+          const response = await fetch(`/api/affiliates/validate?code=${refCode.toUpperCase()}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            const partnerName = data.name;
             
-            // 2. Set 7-Day Attribution Cookie (LocalStorage)
-            const expiry = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 Days
+            const expiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
             localStorage.setItem('zii_ref_code', refCode.toUpperCase());
             localStorage.setItem('zii_ref_expiry', expiry.toString());
             
             setActivePartner(partnerName);
 
-            // 3. Clean URL (remove ?ref=... to look clean)
-            // We use history replacement to keep the current route but drop params
             const newSearch = new URLSearchParams(location.search);
             newSearch.delete('ref');
             navigate({
@@ -50,7 +44,6 @@ export const ReferralHandler: React.FC = () => {
 
   if (!activePartner) return null;
 
-  // Temporary Toast Notification
   return (
     <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] animate-in slide-in-from-top-4 fade-in duration-500 pointer-events-none">
        <div className="bg-zii-accent text-black px-4 py-3 rounded-full shadow-xl flex items-center gap-2 border-2 border-white/20">
