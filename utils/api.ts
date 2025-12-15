@@ -48,26 +48,51 @@ class ApiClient {
   }
 
   // Auth
-  async register(userData: { name: string; email: string; password: string; phone?: string; referralCode?: string; affiliateId?: string }) {
-    return this.request<{ token: string; user: any }>('/auth/register', {
+  async register(userData: { 
+    name: string; 
+    email: string; 
+    password: string; 
+    phone?: string; 
+    referralCode?: string; 
+    affiliateId?: string;
+    country?: string;
+  }) {
+    const response = await this.request<{ token: string; user: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
+    this.setToken(response.token);
+    return response;
   }
 
   async login(email: string, password: string) {
-    return this.request<{ token: string; user: any }>('/auth/login', {
+    const response = await this.request<{ token: string; user: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
+    this.setToken(response.token);
+    return response;
   }
 
   async getCurrentUser() {
     return this.request<any>('/auth/me');
   }
 
+  async updateProfile(updates: { name?: string; phone?: string; country?: string }) {
+    return this.request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
   // Predictions
-  async getPredictions(filters: { status?: string; category?: string; country?: string; creatorId?: string; eventId?: string } = {}) {
+  async getPredictions(filters: { 
+    status?: string; 
+    category?: string; 
+    country?: string; 
+    creatorId?: string; 
+    eventId?: string;
+  } = {}) {
     const params = new URLSearchParams(filters as any);
     return this.request<any[]>(`/predictions?${params}`);
   }
@@ -92,7 +117,11 @@ class ApiClient {
     return this.request<any[]>(`/entries${params}`);
   }
 
-  async placeEntry(entryData: { prediction_id: string; selected_option_id: string; amount: number }) {
+  async placeEntry(entryData: { 
+    prediction_id: string; 
+    selected_option_id: string; 
+    amount: number;
+  }) {
     return this.request('/entries', {
       method: 'POST',
       body: JSON.stringify(entryData),
@@ -115,6 +144,13 @@ class ApiClient {
     });
   }
 
+  async createVoucher(amount: number) {
+    return this.request<{ code: string; amount: number }>('/admin/vouchers', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  }
+
   // Settings
   async getSettings() {
     return this.request('/settings');
@@ -130,6 +166,49 @@ class ApiClient {
   // Admin
   async getAdminStats() {
     return this.request('/admin/stats');
+  }
+
+  async getAnalytics() {
+    return this.request('/admin/analytics');
+  }
+
+  async getAffiliates() {
+    return this.request<any[]>('/admin/affiliates');
+  }
+
+  async createAffiliate(data: { name: string; code: string }) {
+    return this.request('/admin/affiliates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCreatorInvites() {
+    return this.request<any[]>('/admin/creator-invites');
+  }
+
+  async createCreatorInvite(data: { name: string; country: string }) {
+    return this.request('/admin/creator-invites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async revokeCreatorInvite(inviteId: string) {
+    return this.request(`/admin/creator-invites/${inviteId}/revoke`, {
+      method: 'POST',
+    });
+  }
+
+  async validateCreatorInvite(code: string) {
+    return this.request(`/creator-invites/validate/${code}`);
+  }
+
+  async claimCreatorInvite(code: string) {
+    return this.request('/creator-invites/claim', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
   }
 }
 

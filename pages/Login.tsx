@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, fetchSignInMethodsForEmail, sendEmailVerification, signOut, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
 import { Zap, ArrowRight, AlertCircle, Lock, Mail, UserPlus, KeyRound, Check, ShieldAlert } from 'lucide-react';
 import { Loader } from '../components/Loader';
+import { api } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -24,94 +23,36 @@ export const Login: React.FC = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
 
+  const { refreshUser } = useAuth();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setNotFoundEmail('');
-    setUnverifiedEmail('');
-    setIsAdminSetup(false);
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // BYPASS: If it is the admin, skip verification check
-      if (!user.emailVerified && user.email !== 'admin@zii.app') {
-        setUnverifiedEmail(user.email || email);
-        
-        try {
-            await sendEmailVerification(user);
-        } catch (emailErr) {
-            console.log("Error sending verification email:", emailErr);
-        }
-
-        await signOut(auth);
-        setLoading(false);
-        return; 
-      }
-
-      // Sync with Firestore: Ensure user document exists
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (!userDoc.exists()) {
-          await setDoc(userDocRef, {
-            uid: user.uid,
-            name: user.displayName || "User",
-            email: user.email,
-            photo_file_name: null,
-            created_at: new Date().toISOString(),
-            isAdmin: user.email === 'admin@zii.app'
-          });
-        }
-      } catch (firestoreErr) {
-        console.error("Firestore sync error:", firestoreErr);
-      }
+      const response = await api.login(email, password);
+      
+      // Refresh auth context
+      await refreshUser();
       
       // ADMIN REDIRECT LOGIC
-      if (user.email === 'admin@zii.app') {
+      if (email === 'admin@zii.app') {
         navigate('/admin');
       } else {
         navigate('/earn');
       }
 
     } catch (err: any) {
-      console.log("Login Error Code:", err.code); 
+      const message = err.message || 'Login failed';
       
-      // Special Admin Handling: If not found, prompt to create
-      if (email === 'admin@zii.app' && err.code === 'auth/user-not-found') {
-        setIsAdminSetup(true);
-        setLoading(false);
-        return;
-      }
-
-      if (err.code === 'auth/user-not-found') {
+      if (message.includes('not found') || message.includes('Invalid credentials')) {
         setNotFoundEmail(email);
-        setLoading(false);
-        return;
-      }
-
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        try {
-            const methods = await fetchSignInMethodsForEmail(auth, email);
-            if (methods.length === 0) {
-                 setNotFoundEmail(email);
-                 setLoading(false);
-                 return;
-            }
-        } catch (checkErr) {
-            console.log("Could not verify email existence:", checkErr);
-        }
-
-        setError('Password or Email Incorrect');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Try again later.');
-      } else if (err.code === 'auth/user-disabled') {
+      } else if (message.includes('disabled')) {
         setError('This account has been disabled.');
       } else {
-        setError('Failed to sign in. Please check your connection.');
+        setError('Password or Email Incorrect');
       }
     } finally {
       setLoading(false);
@@ -120,30 +61,8 @@ export const Login: React.FC = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setResetError('');
-    
-    if (!email) {
-      setResetError('Please enter your email address.');
-      return;
-    }
-
-    setResetLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setResetEmailSentTo(email);
-      setIsResetMode(false);
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/user-not-found') {
-        setResetError('No account found with this email.');
-      } else if (err.code === 'auth/invalid-email') {
-        setResetError('Invalid email format.');
-      } else {
-        setResetError('Failed to send reset link. Try again.');
-      }
-    } finally {
-      setResetLoading(false);
-    }
+    setResetError('Password reset not yet implemented. Please contact support.');
+    setResetLoading(false);
   };
 
   // ------------------------------------------------------------------
