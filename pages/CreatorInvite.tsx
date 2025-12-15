@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, runTransaction, doc, serverTimestamp } from 'firebase/firestore';
 import { Loader } from '../components/Loader';
 import { CheckCircle, AlertCircle, Star, LogIn, Zap } from 'lucide-react';
@@ -43,6 +43,13 @@ export const CreatorInvitePage: React.FC = () => {
     }
   }, [location]);
 
+  // Auto-claim when invite is loaded
+  useEffect(() => {
+    if (invite && !claiming && !success && !error) {
+      handleClaim();
+    }
+  }, [invite]);
+
   const validateInviteByName = async (creatorSlug: string) => {
     try {
       // Convert slug back to name format for query
@@ -63,11 +70,6 @@ export const CreatorInvitePage: React.FC = () => {
       setInviteCode(inviteData.code);
       setInvite(inviteData);
       setLoading(false);
-
-      // Auto-claim if user is signed in
-      if (currentUser && userProfile && !userProfile.isCreator) {
-        handleClaim();
-      }
     } catch (err: any) {
       console.error(err);
       setError('Failed to validate invite');
@@ -97,11 +99,6 @@ export const CreatorInvitePage: React.FC = () => {
 
       setInvite(inviteData);
       setLoading(false);
-
-      // Auto-claim if user is signed in
-      if (currentUser && userProfile && !userProfile.isCreator) {
-        handleClaim();
-      }
     } catch (err: any) {
       console.error(err);
       setError('Failed to validate invite');
@@ -110,35 +107,101 @@ export const CreatorInvitePage: React.FC = () => {
   };
 
   const handleClaim = async () => {
-    if (!currentUser || !userProfile || !invite) return;
-    
-    if (userProfile.isCreator) {
+    if (!invite) return;
+
+    // If already signed in and already a creator, show error
+    if (currentUser && userProfile?.isCreator) {
       setError('You are already a creator');
       return;
     }
 
+    // If already signed in but not a creator, upgrade them
+    if (currentUser && userProfile && !userProfile.isCreator) {
+      setClaiming(true);
+      setError('');
+
+      try {
+        await runTransaction(db, async (transaction) => {
+          const inviteRef = doc(db, "creator_invites", invite.id!);
+          const userRef = doc(db, "users", currentUser.uid);
+
+          transaction.update(inviteRef, {
+            status: 'claimed',
+            claimed_by: currentUser.uid,
+            claimed_at: serverTimestamp()
+          });
+
+          transaction.update(userRef, {
+            isCreator: true,
+            creator_name: invite.name,
+            creator_country: invite.country,
+            total_events_created: 0,
+            total_commission_earned: 0
+          });
+        });
+
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/creator/studio');
+        }, 2000);
+      } catch (err: any) {
+        console.error(err);
+        setError('Failed to claim invite. Please try again.');
+      } finally {
+        setClaiming(false);
+      }
+      return;
+    }
+
+    // Not signed in - auto-create creator account
     setClaiming(true);
     setError('');
 
     try {
+      // Generate a random password for the auto-created account
+      const randomPassword = `Creator${Date.now()}${Math.random().toString(36).substring(2, 10)}!`;
+      const creatorEmail = `${invite.name.toLowerCase().replace(/\s+/g, '')}@creator.zii.app`;
+
+      // Create the Firebase Auth account
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      const userCredential = await createUserWithEmailAndPassword(auth, creatorEmail, randomPassword);
+      const user = userCredential.user;
+
+      // Update display name
+      await updateProfile(user, {
+        displayName: invite.name,
+      });
+
+      // Create user document with creator status
       await runTransaction(db, async (transaction) => {
         const inviteRef = doc(db, "creator_invites", invite.id!);
-        const userRef = doc(db, "users", currentUser.uid);
+        const userRef = doc(db, "users", user.uid);
 
         // Update invite status
-        transaction.update(inviteRef, {
+        transaction.set(inviteRef, {
           status: 'claimed',
-          claimed_by: currentUser.uid,
+          claimed_by: user.uid,
           claimed_at: serverTimestamp()
-        });
+        }, { merge: true });
 
-        // Upgrade user to creator
-        transaction.update(userRef, {
+        // Create user as creator immediately
+        transaction.set(userRef, {
+          uid: user.uid,
+          name: invite.name,
+          email: creatorEmail,
+          balance: 0, // Creators start with 0 balance
+          winnings_balance: 0,
+          level: 1,
+          xp: 0,
+          photo_file_name: null,
+          created_at: new Date().toISOString(),
           isCreator: true,
           creator_name: invite.name,
           creator_country: invite.country,
           total_events_created: 0,
-          total_commission_earned: 0
+          total_commission_earned: 0,
+          country: invite.country,
+          auto_created: true // Flag to indicate this was auto-created
         });
       });
 
@@ -148,7 +211,11 @@ export const CreatorInvitePage: React.FC = () => {
       }, 2000);
     } catch (err: any) {
       console.error(err);
-      setError('Failed to claim invite. Please try again.');
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This creator account already exists. Please contact support.');
+      } else {
+        setError('Failed to create creator account. Please try again.');
+      }
     } finally {
       setClaiming(false);
     }
@@ -229,24 +296,12 @@ export const CreatorInvitePage: React.FC = () => {
             </ul>
           </div>
 
-          {!currentUser ? (
-            <button
-              onClick={() => navigate('/login', { state: { returnTo: `/creator/invite?code=${inviteCode}` } })}
-              className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-zii-accent transition-all flex items-center justify-center gap-2"
-            >
-              <LogIn size={20} /> Sign In to Accept
-            </button>
-          ) : userProfile?.isCreator ? (
-            <div className="text-white/60 text-sm">You are already a creator</div>
-          ) : (
-            <button
-              onClick={handleClaim}
-              disabled={claiming}
-              className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {claiming ? <Loader className="text-black" /> : <>Accept Invite</>}
-            </button>
-          )}
+          <button
+            disabled={true}
+            className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {claiming ? <Loader className="text-black" /> : <>Setting up your creator account...</>}
+          </button>
         </div>
       </div>
     </div>
