@@ -1,0 +1,478 @@
+
+const express = require('express');
+const { pool } = require('./db');
+const { 
+  hashPassword, 
+  comparePassword, 
+  generateToken, 
+  generateVerificationToken,
+  authenticateMiddleware,
+  adminMiddleware 
+} = require('./auth');
+const { v4: uuidv4 } = require('uuid');
+
+const router = express.Router();
+
+// ============ AUTH ROUTES ============
+
+router.post('/auth/register', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { name, email, password, phone, referralCode, affiliateId } = req.body;
+
+    // Check if user exists
+    const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    const uid = uuidv4();
+    const passwordHash = await hashPassword(password);
+    const verificationToken = generateVerificationToken();
+
+    await client.query('BEGIN');
+
+    // Get platform settings for welcome bonus
+    const settingsResult = await client.query('SELECT welcome_bonus FROM platform_settings WHERE id = 1');
+    const welcomeBonus = settingsResult.rows[0]?.welcome_bonus || 100;
+
+    // Create user
+    await client.query(
+      `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, affiliate_id, referred_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [uid, name, email, phone, passwordHash, welcomeBonus, verificationToken, affiliateId, referralCode]
+    );
+
+    // Create welcome transaction
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, description)
+       VALUES ($1, 'deposit', $2, 'Welcome Bonus')`,
+      [uid, welcomeBonus]
+    );
+
+    await client.query('COMMIT');
+
+    const token = generateToken({ uid, email, is_admin: false });
+    res.json({ token, user: { uid, name, email, balance: welcomeBonus } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Registration failed' });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = result.rows[0];
+    const validPassword = await comparePassword(password, user.password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = generateToken(user);
+    const { password_hash, verification_token, ...userData } = user;
+    
+    res.json({ token, user: userData });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+router.get('/auth/me', authenticateMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM users WHERE uid = $1',
+      [req.user.uid]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { password_hash, verification_token, ...userData } = result.rows[0];
+    res.json(userData);
+  } catch (err) {
+    console.error('Get user error:', err);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// ============ PREDICTIONS ROUTES ============
+
+router.get('/predictions', async (req, res) => {
+  try {
+    const { status = 'open', category, country, creatorId, eventId } = req.query;
+    
+    let query = 'SELECT * FROM predictions WHERE 1=1';
+    const params = [];
+    let paramIndex = 1;
+
+    if (eventId) {
+      query += ` AND id = $${paramIndex++}`;
+      params.push(eventId);
+    } else {
+      if (status) {
+        query += ` AND status = $${paramIndex++}`;
+        params.push(status);
+      }
+      if (category) {
+        query += ` AND category = $${paramIndex++}`;
+        params.push(category);
+      }
+      if (country) {
+        query += ` AND country = $${paramIndex++}`;
+        params.push(country);
+      }
+      if (creatorId) {
+        query += ` AND created_by_creator = $${paramIndex++}`;
+        params.push(creatorId);
+      }
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetch predictions error:', err);
+    res.status(500).json({ error: 'Failed to fetch predictions' });
+  }
+});
+
+router.post('/predictions', authenticateMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { question, category, country, type, closes_at, resolution_source, options, liquidity_pool } = req.body;
+
+    await client.query('BEGIN');
+
+    const predictionId = uuidv4();
+    
+    // Get creator info
+    const userResult = await client.query('SELECT creator_name FROM users WHERE uid = $1', [req.user.uid]);
+    const creatorName = userResult.rows[0]?.creator_name;
+
+    await client.query(
+      `INSERT INTO predictions (id, question, category, country, type, status, closes_at, resolution_source, 
+       created_by_creator, creator_name, options, liquidity_pool)
+       VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11)`,
+      [predictionId, question, category, country, type, closes_at, resolution_source, 
+       req.user.uid, creatorName, JSON.stringify(options), JSON.stringify(liquidity_pool)]
+    );
+
+    // Update creator stats
+    await client.query(
+      'UPDATE users SET total_events_created = total_events_created + 1 WHERE uid = $1',
+      [req.user.uid]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({ id: predictionId, message: 'Prediction created' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Create prediction error:', err);
+    res.status(500).json({ error: 'Failed to create prediction' });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/predictions/:id/resolve', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { winning_option_id } = req.body;
+
+    await client.query('BEGIN');
+
+    // Get prediction details
+    const predResult = await client.query('SELECT * FROM predictions WHERE id = $1', [id]);
+    if (predResult.rows.length === 0) {
+      throw new Error('Prediction not found');
+    }
+
+    const prediction = predResult.rows[0];
+
+    // Get all entries
+    const entriesResult = await client.query('SELECT * FROM entries WHERE prediction_id = $1', [id]);
+    const entries = entriesResult.rows;
+
+    const totalPool = entries.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const platformCommission = totalPool * 0.05;
+    const creatorCommission = platformCommission * 0.5;
+    const distributablePool = totalPool - platformCommission;
+
+    const winners = entries.filter(e => e.selected_option_id === winning_option_id);
+    const losers = entries.filter(e => e.selected_option_id !== winning_option_id);
+    const winningVolume = winners.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const payoutRatio = winningVolume > 0 ? (distributablePool / winningVolume) : 0;
+
+    // Update prediction
+    await client.query(
+      `UPDATE predictions SET status = 'resolved', winning_option_id = $1, creator_share = $2 WHERE id = $3`,
+      [winning_option_id, creatorCommission, id]
+    );
+
+    // Credit creator
+    if (prediction.created_by_creator) {
+      await client.query(
+        `UPDATE users SET winnings_balance = winnings_balance + $1, 
+         total_commission_earned = total_commission_earned + $1 WHERE uid = $2`,
+        [creatorCommission, prediction.created_by_creator]
+      );
+
+      await client.query(
+        `INSERT INTO transactions (user_id, type, amount, description)
+         VALUES ($1, 'winnings', $2, $3)`,
+        [prediction.created_by_creator, creatorCommission, `Creator Commission: ${prediction.question.substring(0, 20)}...`]
+      );
+    }
+
+    // Process winners
+    for (const entry of winners) {
+      const actualPayout = parseFloat(entry.amount) * payoutRatio;
+      
+      await client.query(
+        'UPDATE entries SET status = $1, potential_payout = $2 WHERE id = $3',
+        ['won', actualPayout, entry.id]
+      );
+
+      await client.query(
+        'UPDATE users SET winnings_balance = winnings_balance + $1 WHERE uid = $2',
+        [actualPayout, entry.user_id]
+      );
+
+      await client.query(
+        `INSERT INTO transactions (user_id, type, amount, description)
+         VALUES ($1, 'winnings', $2, $3)`,
+        [entry.user_id, actualPayout, `Won: ${prediction.question.substring(0, 15)}...`]
+      );
+    }
+
+    // Process losers
+    for (const entry of losers) {
+      await client.query(
+        'UPDATE entries SET status = $1, potential_payout = 0 WHERE id = $2',
+        ['lost', entry.id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Prediction resolved', commission: creatorCommission });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Resolve prediction error:', err);
+    res.status(500).json({ error: 'Failed to resolve prediction' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============ ENTRIES ROUTES ============
+
+router.get('/entries', authenticateMiddleware, async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    let query = 'SELECT e.*, p.question, p.status as prediction_status, p.options FROM entries e JOIN predictions p ON e.prediction_id = p.id WHERE e.user_id = $1';
+    const params = [req.user.uid];
+
+    if (status) {
+      query += ' AND e.status = $2';
+      params.push(status);
+    }
+
+    query += ' ORDER BY e.created_at DESC';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetch entries error:', err);
+    res.status(500).json({ error: 'Failed to fetch entries' });
+  }
+});
+
+router.post('/entries', authenticateMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { prediction_id, selected_option_id, amount } = req.body;
+
+    await client.query('BEGIN');
+
+    // Check user balance
+    const userResult = await client.query('SELECT balance FROM users WHERE uid = $1', [req.user.uid]);
+    if (userResult.rows[0].balance < amount) {
+      throw new Error('Insufficient balance');
+    }
+
+    // Deduct balance
+    await client.query(
+      'UPDATE users SET balance = balance - $1 WHERE uid = $2',
+      [amount, req.user.uid]
+    );
+
+    // Create entry
+    const entryId = uuidv4();
+    await client.query(
+      `INSERT INTO entries (id, user_id, prediction_id, selected_option_id, amount, status)
+       VALUES ($1, $2, $3, $4, $5, 'active')`,
+      [entryId, req.user.uid, prediction_id, selected_option_id, amount]
+    );
+
+    // Update prediction pool
+    await client.query(
+      'UPDATE predictions SET pool_size = pool_size + $1 WHERE id = $2',
+      [amount, prediction_id]
+    );
+
+    // Create transaction
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, description)
+       VALUES ($1, 'bet', $2, 'Placed entry')`,
+      [req.user.uid, -amount]
+    );
+
+    await client.query('COMMIT');
+    res.json({ id: entryId, message: 'Entry placed' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Place entry error:', err);
+    res.status(500).json({ error: err.message || 'Failed to place entry' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============ WALLET ROUTES ============
+
+router.get('/wallet/balance', authenticateMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT balance, winnings_balance FROM users WHERE uid = $1',
+      [req.user.uid]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Get balance error:', err);
+    res.status(500).json({ error: 'Failed to fetch balance' });
+  }
+});
+
+router.get('/transactions', authenticateMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
+      [req.user.uid]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get transactions error:', err);
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+router.post('/wallet/redeem', authenticateMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { code } = req.body;
+
+    await client.query('BEGIN');
+
+    const voucherResult = await client.query(
+      'SELECT * FROM vouchers WHERE code = $1 AND status = $2',
+      [code, 'active']
+    );
+
+    if (voucherResult.rows.length === 0) {
+      throw new Error('Invalid or already redeemed voucher');
+    }
+
+    const voucher = voucherResult.rows[0];
+
+    await client.query(
+      'UPDATE vouchers SET status = $1, redeemed_by = $2, redeemed_at = CURRENT_TIMESTAMP WHERE id = $3',
+      ['redeemed', req.user.uid, voucher.id]
+    );
+
+    await client.query(
+      'UPDATE users SET balance = balance + $1 WHERE uid = $2',
+      [voucher.amount, req.user.uid]
+    );
+
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, description)
+       VALUES ($1, 'deposit', $2, 'Voucher redeemed')`,
+      [req.user.uid, voucher.amount]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Voucher redeemed', amount: voucher.amount });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Redeem voucher error:', err);
+    res.status(400).json({ error: err.message || 'Failed to redeem voucher' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============ ADMIN ROUTES ============
+
+router.get('/admin/stats', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const stats = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM users) as total_users,
+        (SELECT COUNT(*) FROM predictions WHERE status = 'open') as active_predictions,
+        (SELECT SUM(pool_size) FROM predictions WHERE status = 'open') as total_pool,
+        (SELECT COUNT(*) FROM entries WHERE created_at > NOW() - INTERVAL '24 hours') as entries_24h
+    `);
+    res.json(stats.rows[0]);
+  } catch (err) {
+    console.error('Get stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+router.get('/settings', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM platform_settings WHERE id = 1');
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Get settings error:', err);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+router.put('/settings', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { maintenance_mode, welcome_bonus, referral_bonus, min_cashout, banner_message, banner_active } = req.body;
+    
+    await pool.query(
+      `UPDATE platform_settings SET 
+       maintenance_mode = $1, welcome_bonus = $2, referral_bonus = $3,
+       min_cashout = $4, banner_message = $5, banner_active = $6
+       WHERE id = 1`,
+      [maintenance_mode, welcome_bonus, referral_bonus, min_cashout, banner_message, banner_active]
+    );
+
+    res.json({ message: 'Settings updated' });
+  } catch (err) {
+    console.error('Update settings error:', err);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+module.exports = router;
