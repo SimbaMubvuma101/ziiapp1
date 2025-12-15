@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Prediction, PredictionStatus, UserEntry } from '../types';
 import { PredictionCard } from '../components/PredictionCard';
 import { EntryModal } from '../components/BetModal';
@@ -11,7 +11,7 @@ import { LevelUpOverlay } from '../components/LevelUpOverlay';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, runTransaction, doc, serverTimestamp, deleteDoc, writeBatch, getDocs, increment } from 'firebase/firestore';
-import { Loader } from '../components/Loader';
+import { SplashLoader, Loader } from '../components/Loader';
 import { Trash2, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { calculateAMMOdds, FIXED_PAYOUT_AMOUNT } from '../utils/amm';
 import { GAME_CONFIG, getLevelFromXP, isMilestoneLevel } from '../utils/gamification';
@@ -19,9 +19,10 @@ import { GAME_CONFIG, getLevelFromXP, isMilestoneLevel } from '../utils/gamifica
 interface FeedProps {
   adminMode?: boolean;
   onPredictionClick?: (prediction: Prediction) => void;
+  adminStatusFilter?: 'open' | 'closed' | 'resolved';
 }
 
-export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick }) => {
+export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick, adminStatusFilter }) => {
   const { userProfile, currentUser, isAdmin: authIsAdmin, userCountry } = useAuth();
   // Force admin flag if we are in admin mode (implies parent checked permissions)
   const effectiveIsAdmin = adminMode || authIsAdmin;
@@ -50,6 +51,13 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   
   // Auth Prompt State
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+
+  // Pull to Refresh State
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullY, setPullY] = useState(0);
+  const touchStartY = useRef(0);
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
 
   const tabs = [
     'All',
@@ -209,7 +217,61 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     });
 
     return () => unsubscribe();
-  }, [adminMode, userCountry]);
+  }, [adminMode, userCountry, refreshTrigger]);
+
+  // Pull-to-Refresh Logic
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Find scroll container
+    if (!scrollContainerRef.current) {
+        scrollContainerRef.current = (e.target as HTMLElement).closest('.overflow-y-auto');
+    }
+    const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+    
+    // Only enable if at top
+    if (scrollTop <= 0) {
+        touchStartY.current = e.touches[0].clientY;
+    } else {
+        touchStartY.current = 0;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+    if (touchStartY.current === 0 || scrollTop > 0) return;
+
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartY.current;
+
+    // Only allow pulling down
+    if (diff > 0) {
+        // Logarithmic/damped resistance
+        const dampened = Math.min(diff * 0.4, 120); 
+        setPullY(dampened);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartY.current === 0) return;
+    
+    if (pullY > 60) {
+        handleRefresh();
+    }
+    setPullY(0);
+    touchStartY.current = 0;
+  };
+
+  const handleRefresh = () => {
+      if (isRefreshing) return;
+      setIsRefreshing(true);
+      
+      // Force Effect Re-run (re-subscribes to listeners)
+      setRefreshTrigger(prev => prev + 1);
+      
+      // Aesthetic delay for UX
+      setTimeout(() => {
+          setIsRefreshing(false);
+      }, 1500);
+  };
 
   // 3. Handle Card Click
   const handleCardClick = (pred: Prediction) => {
@@ -476,17 +538,59 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       }
   };
 
-  const filteredPredictions = activeTab === 'All' 
-    ? predictions 
-    : predictions.filter(p => p.category === activeTab);
+  let filteredPredictions = predictions;
+  if (adminMode && adminStatusFilter) {
+      // Enhanced Admin Filtering:
+      // 'open' -> Strictly open status AND strictly future deadline
+      // 'closed' -> 'closed' status OR ('open' status but past deadline)
+      // 'resolved' -> 'resolved' status
+      const now = new Date();
+      filteredPredictions = predictions.filter(p => {
+         const isExpired = new Date(p.closes_at) < now;
+         
+         if (adminStatusFilter === 'open') {
+             return p.status === 'open' && !isExpired;
+         }
+         if (adminStatusFilter === 'closed') {
+             return p.status === 'closed' || (p.status === 'open' && isExpired);
+         }
+         if (adminStatusFilter === 'resolved') {
+             return p.status === 'resolved';
+         }
+         return false;
+      });
+  } else if (!adminMode && activeTab !== 'All') {
+      filteredPredictions = predictions.filter(p => p.category === activeTab);
+  }
 
+  // Replaced simple loader with SplashLoader
   if (loading) {
-     return <div className="flex h-[50vh] items-center justify-center"><Loader className="text-zii-accent" /></div>;
+     return <SplashLoader />;
   }
 
   return (
-    <div className="pb-24 pt-4 px-4 space-y-4 animate-in fade-in duration-500 relative">
+    <div 
+        className="pb-24 pt-4 px-4 space-y-4 animate-in fade-in duration-500 relative min-h-[80vh]"
+        onTouchStart={handleTouchStart} 
+        onTouchMove={handleTouchMove} 
+        onTouchEnd={handleTouchEnd}
+    >
       
+      {/* Pull to Refresh Indicator */}
+      <div 
+          className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none transition-all duration-300"
+          style={{ 
+              // Account for TopBar height (3.5rem) + Safe Area + Padding
+              top: 'calc(3.5rem + env(safe-area-inset-top) + 20px)',
+              transform: `translateY(${isRefreshing ? 20 : Math.max(0, pullY - 40)}px)`,
+              opacity: pullY > 10 || isRefreshing ? 1 : 0
+          }}
+      >
+          <div className={`bg-white p-2 rounded-full shadow-xl border border-white/10 ${isRefreshing ? 'animate-spin' : ''} ${pullY > 60 && !isRefreshing ? 'scale-125' : ''} transition-transform`}>
+               <Loader size={20} className="text-black" />
+          </div>
+      </div>
+
       {/* Celebration Modal */}
       {celebrationEntries.length > 0 && (
           <CelebrationModal 
@@ -553,11 +657,13 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
                 {/* 2. Admin Status Badge Overlay (Rendered AFTER) */}
                 {adminMode && (
                     <div className={`pointer-events-none absolute top-0 left-0 z-20 px-3 py-1 rounded-br-xl rounded-tl-2xl text-[10px] font-bold uppercase tracking-wider shadow-lg ${
-                        pred.status === 'open' ? 'bg-zii-accent text-black' :
-                        pred.status === 'closed' ? 'bg-red-500 text-white' :
-                        'bg-white text-black'
+                        pred.status === 'open' 
+                            ? (new Date(pred.closes_at) < new Date() ? 'bg-orange-500 text-white' : 'bg-zii-accent text-black')
+                            : pred.status === 'closed' ? 'bg-red-500 text-white' 
+                            : pred.status === 'resolved' ? 'bg-green-500 text-black'
+                            : 'bg-white text-black'
                     }`}>
-                        {pred.status}
+                        {pred.status === 'open' && new Date(pred.closes_at) < new Date() ? 'EXPIRED' : pred.status}
                     </div>
                 )}
 

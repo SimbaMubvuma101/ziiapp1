@@ -28,6 +28,14 @@ service cloud.firestore {
 
     // --- COLLECTION RULES ---
 
+    // SYSTEM SETTINGS (Global Config):
+    // - Read: Public (Used for maintenance mode, banners, welcome bonus display)
+    // - Write: Admin only
+    match /system/platform {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // USERS: 
     // - Users read/write their own profile
     // - Admins can read/write any profile (Needed for Admin User Stats)

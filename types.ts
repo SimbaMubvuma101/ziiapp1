@@ -46,6 +46,8 @@ export interface Prediction {
 
   winning_option_id?: string; // ID of the option that won
   
+  resolution_source?: string; // URL or description of how truth is determined
+  
   // New Fields for Input Types
   payout?: number; // Kept for legacy/range types (Standard payout unit)
   validation?: {
@@ -130,4 +132,14 @@ export interface Affiliate {
   commission_owed: number; // 10% of the 5% House Fee
   active_users_count: number; // Number of users registered under this code
   created_at: any;
+}
+
+// Global Platform Settings
+export interface PlatformSettings {
+  maintenance_mode: boolean;
+  welcome_bonus: number;
+  referral_bonus: number;
+  min_cashout: number;
+  banner_message: string;
+  banner_active: boolean;
 }

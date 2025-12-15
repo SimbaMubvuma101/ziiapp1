@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserEntry, Prediction } from '../types';
-import { X, TrendingUp, DollarSign, Wallet, Clock, Info } from 'lucide-react';
+import { X, TrendingUp, DollarSign, Wallet, Clock, Info, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface BetDetailsModalProps {
@@ -119,6 +119,19 @@ export const BetDetailsModal: React.FC<BetDetailsModalProps> = ({ entry, predict
                  </span>
              </div>
           </div>
+
+          {/* Source of Truth (Optional) */}
+          {prediction && prediction.resolution_source && (
+             <div className="flex gap-2 items-start bg-white/5 p-3 rounded-lg border border-white/5">
+                <ShieldCheck size={14} className="text-white/40 shrink-0 mt-0.5" />
+                <div>
+                    <p className="text-[10px] text-white/40 uppercase font-bold tracking-wider mb-0.5">Resolution Source</p>
+                    <p className="text-[11px] text-white/80 leading-relaxed font-medium">
+                        {prediction.resolution_source}
+                    </p>
+                </div>
+             </div>
+          )}
 
           {/* Info Note */}
            <div className="flex gap-2 items-start bg-blue-500/5 p-3 rounded-lg border border-blue-500/10">

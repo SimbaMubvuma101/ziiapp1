@@ -245,7 +245,7 @@ export const Login: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-highlight/50 focus:bg-black/40 transition-all"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-highlight/50 focus:bg-black/40 transition-all"
                   placeholder="name@example.com"
                 />
               </div>
@@ -384,7 +384,7 @@ export const Login: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
+                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
                 placeholder="name@example.com"
               />
             </div>
@@ -410,7 +410,7 @@ export const Login: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
+                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 focus:bg-black/40 transition-all"
                 placeholder="••••••••"
               />
             </div>

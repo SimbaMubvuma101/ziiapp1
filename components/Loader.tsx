@@ -26,3 +26,13 @@ export const Loader: React.FC<LoaderProps> = ({ size = 24, className = "" }) => 
     </svg>
   );
 };
+
+export const SplashLoader: React.FC<{ className?: string }> = ({ className = "" }) => (
+  <div className={`fixed inset-0 z-[9999] bg-[#0F172A] flex flex-col items-center justify-center ${className}`}>
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-zii-accent/10 rounded-full blur-[100px]" />
+    <Loader size={60} className="text-zii-accent relative z-10" />
+    <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-8 animate-pulse relative z-10 font-mono">
+      Loading Zii...
+    </p>
+  </div>
+);

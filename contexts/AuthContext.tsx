@@ -2,13 +2,14 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { Loader } from '../components/Loader';
-import { FirestoreUser } from '../types';
+import { SplashLoader } from '../components/Loader';
+import { FirestoreUser, PlatformSettings } from '../types';
 import { getCurrencySymbol, getExchangeRate } from '../constants';
 
 interface AuthContextType {
   currentUser: User | null;
   userProfile: FirestoreUser | null;
+  platformSettings: PlatformSettings;
   loading: boolean;
   logout: () => Promise<void>;
   isAdmin: boolean;
@@ -28,9 +29,20 @@ export const useAuth = () => {
   return context;
 };
 
+// Default Settings if DB is empty
+const DEFAULT_SETTINGS: PlatformSettings = {
+    maintenance_mode: false,
+    welcome_bonus: 100,
+    referral_bonus: 10,
+    min_cashout: 5,
+    banner_message: "Welcome to Zii!",
+    banner_active: false
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<FirestoreUser | null>(null);
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   
   // Country Management
@@ -70,6 +82,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let unsubscribeFirestore: () => void;
+    let unsubscribeSettings: () => void;
+
+    // 1. Listen for Platform Settings (Global)
+    const settingsRef = doc(db, 'system', 'platform');
+    unsubscribeSettings = onSnapshot(settingsRef, (doc) => {
+        if (doc.exists()) {
+            setPlatformSettings(doc.data() as PlatformSettings);
+        } else {
+            // Create default if missing
+            setDoc(settingsRef, DEFAULT_SETTINGS).catch(e => console.error("Init settings failed", e));
+        }
+    });
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -77,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         
-        // 1. SECURITY CRITICAL: Force Admin Flags for Root User
+        // 2. SECURITY CRITICAL: Force Admin Flags for Root User
         if (user.email === 'admin@zii.app') {
              try {
                  await setDoc(userRef, { 
@@ -92,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              }
         }
 
-        // 2. Ensure basic profile exists for everyone else
+        // 3. Ensure basic profile exists for everyone else
         try {
             const docSnap = await getDoc(userRef);
             if (!docSnap.exists()) {
@@ -100,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     uid: user.uid,
                     name: user.displayName || 'User',
                     email: user.email,
-                    balance: 100, // Welcome Bonus
+                    balance: platformSettings.welcome_bonus || 100, // Use Dynamic Setting
                     winnings_balance: 0,
                     level: 1, // Gamification Start
                     xp: 0,
@@ -121,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error("Profile creation error:", e);
         }
 
-        // 3. Real-time Profile Listener
+        // 4. Real-time Profile Listener
         unsubscribeFirestore = onSnapshot(userRef, 
           (doc) => {
             if (doc.exists()) {
@@ -151,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
         unsubscribeAuth();
         if (unsubscribeFirestore) unsubscribeFirestore();
+        if (unsubscribeSettings) unsubscribeSettings();
     };
   }, []); // Run once on mount
 
@@ -159,12 +184,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, userProfile, loading, logout, isAdmin, userCountry, currencySymbol, exchangeRate, updateCountry }}>
-      {!loading ? children : (
-        <div className="min-h-screen bg-zii-bg flex items-center justify-center">
-          <Loader size={40} className="text-zii-accent" />
-        </div>
-      )}
+    <AuthContext.Provider value={{ currentUser, userProfile, platformSettings, loading, logout, isAdmin, userCountry, currencySymbol, exchangeRate, updateCountry }}>
+      {!loading ? children : <SplashLoader />}
     </AuthContext.Provider>
   );
 };

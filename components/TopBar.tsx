@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, HelpCircle, LogOut, X, FileText, Share2, ChevronRight, Settings, Trash2, Camera, Save, Copy, Coins, LogIn, Globe, Zap, Trophy } from 'lucide-react';
+import { User, HelpCircle, LogOut, X, FileText, Share2, ChevronRight, Settings, Trash2, Camera, Save, Copy, Coins, LogIn, Globe, Zap, Trophy, Megaphone } from 'lucide-react';
 import { TermsModal } from './TermsModal';
 import { ShareModal } from './ShareModal';
 import { AuthPromptModal } from './AuthPromptModal';
@@ -19,7 +19,7 @@ export const TopBar: React.FC = () => {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   
   // Profile State
-  const { currentUser, logout, userProfile, userCountry, updateCountry } = useAuth();
+  const { currentUser, logout, userProfile, userCountry, updateCountry, exchangeRate, platformSettings } = useAuth();
   const navigate = useNavigate();
   const [userData, setUserData] = useState<any>(null);
   
@@ -68,6 +68,9 @@ export const TopBar: React.FC = () => {
     : "Nov 2024";
 
   const balance = userProfile?.balance || 0;
+  // SCALE BALANCE based on country exchange rate
+  const scaledBalance = balance * exchangeRate;
+
   const isLowBalance = balance < 10;
   const level = userProfile?.level || 1;
   const xp = userProfile?.xp || 0;
@@ -172,62 +175,72 @@ export const TopBar: React.FC = () => {
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-zii-bg/80 backdrop-blur-md border-b border-white/5 px-4 h-14 flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tighter text-white">
-          Zii<span className="text-zii-accent">.</span>
-        </h1>
-        
-        <div className="flex items-center gap-2">
-            {/* Quick Balance Display (Hidden for Guest) */}
-            {currentUser ? (
-                <div 
-                    onClick={() => navigate('/wallet')} 
-                    className={`flex items-center gap-1.5 bg-white/5 pl-3 pr-2 py-1 rounded-full border ${isLowBalance ? 'border-red-500/30' : 'border-white/5'} active:scale-95 transition-transform cursor-pointer hover:bg-white/10 mr-1`}
-                >
-                    <span className={`font-bold font-mono text-xs ${isLowBalance ? 'text-red-500' : 'text-zii-accent'}`}>{balance.toLocaleString()}</span>
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isLowBalance ? 'bg-red-500/20' : 'bg-zii-accent/20'}`}>
-                        <Coins size={10} className={isLowBalance ? 'text-red-500' : 'text-zii-accent'} />
-                    </div>
-                </div>
-            ) : null}
+      <div className="sticky top-0 z-40 bg-zii-bg/80 backdrop-blur-md border-b border-white/5 pt-safe w-full">
+        {/* GLOBAL ANNOUNCEMENT BANNER */}
+        {platformSettings.banner_active && platformSettings.banner_message && (
+            <div className="bg-zii-accent/10 border-b border-zii-accent/20 px-4 py-2 flex items-center justify-center gap-2">
+                <Megaphone size={12} className="text-zii-accent animate-pulse" />
+                <p className="text-[10px] font-bold text-white text-center">{platformSettings.banner_message}</p>
+            </div>
+        )}
 
-            {currentUser ? (
-                <>
-                    {/* Level Indicator (Separate) */}
-                    <button 
-                        onClick={() => setShowMenu(true)}
-                        className="relative group flex items-center justify-center"
+        <div className="flex items-center justify-between px-4 h-14">
+            <h1 className="text-xl font-bold tracking-tighter text-white">
+            Zii<span className="text-zii-accent">.</span>
+            </h1>
+            
+            <div className="flex items-center gap-2">
+                {/* Quick Balance Display (Hidden for Guest) */}
+                {currentUser ? (
+                    <div 
+                        onClick={() => navigate('/wallet')} 
+                        className={`flex items-center gap-1.5 bg-white/5 pl-3 pr-2 py-1 rounded-full border ${isLowBalance ? 'border-red-500/30' : 'border-white/5'} active:scale-95 transition-transform cursor-pointer hover:bg-white/10 mr-1`}
                     >
-                        <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden relative active:scale-95 transition-transform">
-                            {/* Background Progress Circle */}
-                            <div 
-                                className="absolute bottom-0 left-0 right-0 bg-zii-accent/20 transition-all duration-500"
-                                style={{ height: `${progress}%` }}
-                            ></div>
-                            
-                            <div className="relative z-10 flex flex-col items-center justify-center -space-y-0.5">
-                                <span className="text-[9px] font-black text-white leading-none">{level}</span>
-                                <span className="text-[5px] text-white/50 font-bold uppercase tracking-wide leading-none">LVL</span>
-                            </div>
+                        <span className={`font-bold font-mono text-xs ${isLowBalance ? 'text-red-500' : 'text-zii-accent'}`}>{scaledBalance.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isLowBalance ? 'bg-red-500/20' : 'bg-zii-accent/20'}`}>
+                            <Coins size={10} className={isLowBalance ? 'text-red-500' : 'text-zii-accent'} />
                         </div>
-                    </button>
+                    </div>
+                ) : null}
 
-                    {/* Profile Icon (Separate) */}
+                {currentUser ? (
+                    <>
+                        {/* Level Indicator (Separate) */}
+                        <button 
+                            onClick={() => setShowMenu(true)}
+                            className="relative group flex items-center justify-center"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden relative active:scale-95 transition-transform">
+                                {/* Background Progress Circle */}
+                                <div 
+                                    className="absolute bottom-0 left-0 right-0 bg-zii-accent/20 transition-all duration-500"
+                                    style={{ height: `${progress}%` }}
+                                ></div>
+                                
+                                <div className="relative z-10 flex flex-col items-center justify-center -space-y-0.5">
+                                    <span className="text-[9px] font-black text-white leading-none">{level}</span>
+                                    <span className="text-[5px] text-white/50 font-bold uppercase tracking-wide leading-none">LVL</span>
+                                </div>
+                            </div>
+                        </button>
+
+                        {/* Profile Icon (Separate) */}
+                        <button 
+                            onClick={() => setShowMenu(true)}
+                            className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/10 to-white/5 border border-white/10 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
+                        >
+                            <span className="text-xs font-bold text-white tracking-tight">{initials}</span>
+                        </button>
+                    </>
+                ) : (
                     <button 
-                        onClick={() => setShowMenu(true)}
-                        className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/10 to-white/5 border border-white/10 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
+                        onClick={() => setShowAuthPrompt(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-zii-accent text-black font-bold text-xs rounded-full active:scale-95"
                     >
-                        <span className="text-xs font-bold text-white tracking-tight">{initials}</span>
+                        <LogIn size={14} /> Join
                     </button>
-                </>
-            ) : (
-                <button 
-                    onClick={() => setShowAuthPrompt(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-zii-accent text-black font-bold text-xs rounded-full active:scale-95"
-                >
-                    <LogIn size={14} /> Join
-                </button>
-            )}
+                )}
+            </div>
         </div>
       </div>
 
@@ -235,7 +248,7 @@ export const TopBar: React.FC = () => {
       {showMenu && currentUser && (
         <div className="fixed inset-0 z-50 bg-zii-bg animate-in slide-in-from-right duration-200 flex flex-col">
           {/* Header */}
-          <div className="p-4 flex justify-end">
+          <div className="p-4 pt-safe flex justify-end">
             <button 
               onClick={() => {
                   setShowMenu(false);
@@ -258,7 +271,7 @@ export const TopBar: React.FC = () => {
                      <h2 className="text-2xl font-bold text-white mb-6 text-center">Select Country</h2>
                      <p className="text-white/50 text-center text-sm mb-6">Changing country will update your currency and the events you see in the feed.</p>
                      
-                     <div className="space-y-3">
+                     <div className="space-y-3 pb-safe">
                          {SUPPORTED_COUNTRIES.map((c) => (
                              <button
                                 key={c.code}
@@ -302,7 +315,7 @@ export const TopBar: React.FC = () => {
                               type="text"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zii-accent/50 transition-all"
+                              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:outline-none focus:border-zii-accent/50 transition-all"
                             />
                         </div>
                         <div className="space-y-1">
@@ -312,7 +325,7 @@ export const TopBar: React.FC = () => {
                               value={editPhone}
                               onChange={(e) => setEditPhone(e.target.value)}
                               placeholder="077 123 4567"
-                              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zii-accent/50 transition-all"
+                              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:outline-none focus:border-zii-accent/50 transition-all"
                             />
                         </div>
                         <div className="space-y-1 opacity-50 pointer-events-none">
@@ -321,7 +334,7 @@ export const TopBar: React.FC = () => {
                               type="text"
                               value={email}
                               readOnly
-                              className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-white/50"
+                              className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-base text-white/50"
                             />
                         </div>
 
@@ -443,7 +456,7 @@ export const TopBar: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="space-y-8 max-w-sm mx-auto w-full">
+                    <div className="space-y-8 max-w-sm mx-auto w-full pb-safe">
                         
                         {/* Section 1 */}
                         <div className="space-y-3">
@@ -501,7 +514,7 @@ export const TopBar: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="mt-12 text-center space-y-2">
+                    <div className="mt-8 text-center space-y-2 pb-safe">
                         <p className="text-[10px] text-white/20">Zii Version 1.1.0 (Africa)</p>
                         <p className="text-[10px] text-white/10">Made with ⚡ in Zimbabwe</p>
                     </div>

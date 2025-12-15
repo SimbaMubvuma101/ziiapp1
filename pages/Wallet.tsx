@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { TrendingUp, Plus, ArrowUpRight, Gift, ArrowDownLeft, Trophy, Info, Coins, Wallet as WalletIcon, LogIn } from 'lucide-react';
+import { TrendingUp, Plus, ArrowUpRight, Gift, ArrowDownLeft, Trophy, Info, Coins, Wallet as WalletIcon, LogIn, CheckCircle, ArrowRight } from 'lucide-react';
 import { Loader } from '../components/Loader';
 import { SuccessOverlay } from '../components/SuccessOverlay';
 import { BuyModal } from '../components/BuyModal';
@@ -18,7 +18,7 @@ export const Wallet: React.FC = () => {
   
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [redeemSuccess, setRedeemSuccess] = useState<{ amount: number } | null>(null);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
   
@@ -187,12 +187,16 @@ export const Wallet: React.FC = () => {
             }
         });
 
+        const redeemedAmount = voucherDoc.data().amount;
         setVoucherCode('');
         
         if (leveledUp) {
-            setNewLevelData({ level: nextLevel, reward: rewardAmount > 0 ? rewardAmount : undefined });
+            setNewLevelData({ 
+              level: nextLevel, 
+              reward: rewardAmount > 0 ? (rewardAmount * exchangeRate) : undefined 
+            });
         } else {
-            setShowSuccess(true);
+            setRedeemSuccess({ amount: redeemedAmount * exchangeRate });
         }
 
     } catch (e: any) {
@@ -213,6 +217,38 @@ export const Wallet: React.FC = () => {
             reward={newLevelData.reward} 
             onClose={() => setNewLevelData(null)} 
           />
+      )}
+
+      {/* Redemption Success Modal */}
+      {redeemSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200 p-4">
+            <div className="w-full max-w-sm bg-[#1E293B] border border-zii-accent/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(39,241,199,0.1)] text-center relative animate-in zoom-in-95 slide-in-from-bottom-4">
+                
+                <div className="w-20 h-20 bg-zii-accent/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-zii-accent/20 shadow-[0_0_15px_rgba(39,241,199,0.2)]">
+                    <CheckCircle size={40} className="text-zii-accent" strokeWidth={2.5} />
+                </div>
+
+                <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Voucher Redeemed!</h2>
+                <p className="text-white/60 mb-8 leading-relaxed">
+                    You have successfully added <span className="text-zii-accent font-bold text-lg">{redeemSuccess.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} Coins</span> to your wallet.
+                </p>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={() => navigate('/earn')}
+                        className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-zii-accent/20 active:scale-[0.98]"
+                    >
+                         Start Earning <ArrowRight size={20} />
+                    </button>
+                    <button 
+                        onClick={() => setRedeemSuccess(null)}
+                        className="w-full bg-white/5 text-white/50 font-bold py-4 rounded-xl hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
 
       <div className="flex items-center gap-2 mb-6 opacity-60">
@@ -268,9 +304,13 @@ export const Wallet: React.FC = () => {
              </button>
         </div>
 
-        <div className="flex items-center gap-2 text-[10px] text-white/30 bg-black/20 p-2 rounded-lg border border-white/5">
-             <Info size={12} className="shrink-0" />
-             <span>Coins are used to place predictions. 1 Coin = {currencySymbol}1.00 Value (Approx).</span>
+        <div className="flex gap-2 items-start text-[10px] text-white/40 bg-black/20 p-3 rounded-xl border border-white/5 leading-relaxed">
+             <Info size={14} className="shrink-0 mt-0.5 text-zii-accent" />
+             <span>
+               <strong>Zii Coins</strong> are the official in-app currency used to place predictions. 
+               Use them to play, and if you win, you earn real withdrawable cash.
+               <br/><span className="opacity-50 mt-1 block">1 Coin ≈ {currencySymbol}1.00 Value.</span>
+             </span>
         </div>
       </div>
 
@@ -287,7 +327,7 @@ export const Wallet: React.FC = () => {
             onChange={(e) => setVoucherCode(e.target.value)}
             disabled={isRedeeming}
             placeholder="Enter 15-digit code"
-            className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-colors disabled:opacity-50 font-mono"
+            className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-colors disabled:opacity-50 font-mono"
           />
           <button 
             onClick={handleRedeem}
@@ -351,13 +391,6 @@ export const Wallet: React.FC = () => {
           })
         )}
       </div>
-
-      {showSuccess && (
-        <SuccessOverlay 
-          message="Coins Added!" 
-          onDismiss={() => setShowSuccess(false)} 
-        />
-      )}
       
       {showBuyModal && (
         <BuyModal onClose={() => setShowBuyModal(false)} />

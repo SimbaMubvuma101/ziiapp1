@@ -58,6 +58,7 @@ export const BuyModal: React.FC<BuyModalProps> = ({ onClose }) => {
                 className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-4 text-3xl font-bold text-white focus:outline-none focus:border-zii-accent/50 transition-colors placeholder:text-white/10 text-center"
                 placeholder="0"
                 autoFocus
+                style={{ fontSize: '1.875rem' /* 30px is big enough to prevent zoom */ }}
               />
             </div>
             

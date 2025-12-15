@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { Loader } from '../components/Loader';
+import { SplashLoader } from '../components/Loader';
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -22,15 +22,7 @@ export const Landing: React.FC = () => {
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-zii-highlight/5 rounded-full blur-[100px]" />
 
       {/* Full Screen Loader Overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 z-50 bg-zii-bg flex flex-col items-center justify-center animate-in fade-in duration-300">
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-zii-accent/10 rounded-full blur-[80px]" />
-           <Loader size={50} className="text-zii-accent relative z-10" />
-           <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-8 animate-pulse relative z-10">
-             Starting Zii...
-           </p>
-        </div>
-      )}
+      {isLoading && <SplashLoader className="animate-in fade-in duration-300" />}
 
       <div className="relative z-10 flex flex-col items-center text-center space-y-8 max-w-sm w-full">
         <div className="flex items-center justify-center w-20 h-20 bg-white/5 rounded-3xl border border-white/10 mb-2 shadow-2xl backdrop-blur-sm rotate-3 hover:rotate-6 transition-transform duration-500 group">
