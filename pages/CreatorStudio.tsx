@@ -11,10 +11,11 @@ export const CreatorStudio: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'manage' | 'earnings'>('create');
   const [myEvents, setMyEvents] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [totalEarnings, setTotalEarnings] = useState(0);
 
   // Create Form
   const [question, setQuestion] = useState('');
@@ -58,6 +59,12 @@ export const CreatorStudio: React.FC = () => {
         const events = await api.getPredictions({ creatorId: currentUser.uid });
         events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         setMyEvents(events);
+        
+        // Calculate total earnings from resolved events
+        const earnings = events
+          .filter(e => e.status === 'resolved')
+          .reduce((sum, e) => sum + (e.creator_share || 0), 0);
+        setTotalEarnings(earnings);
       } catch (err) {
         console.error('Failed to fetch creator events:', err);
       }
@@ -332,9 +339,80 @@ export const CreatorStudio: React.FC = () => {
           >
             My Events ({myEvents.length})
           </button>
+          <button
+            onClick={() => setActiveTab('earnings')}
+            className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${
+              activeTab === 'earnings' ? 'bg-zii-card text-white' : 'text-white/40'
+            }`}
+          >
+            Earnings
+          </button>
         </div>
 
-        {activeTab === 'create' ? (
+        {activeTab === 'earnings' ? (
+          <div className="space-y-4">
+            {/* Total Earnings Card */}
+            <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-3xl p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy className="text-green-400" size={20} />
+                <p className="text-xs text-white/60 uppercase font-bold tracking-widest">Total Earnings</p>
+              </div>
+              <p className="text-4xl font-black text-green-400 mb-1">${totalEarnings.toFixed(2)}</p>
+              <p className="text-xs text-white/40">Lifetime commission from all events</p>
+            </div>
+
+            {/* Earnings Breakdown */}
+            <div className="bg-zii-card border border-white/5 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                <Star size={16} className="text-zii-accent" /> How You Earn
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-zii-accent/10 p-2 rounded-lg">
+                      <Zap size={16} className="text-zii-accent" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-white mb-1">Platform Commission</p>
+                      <p className="text-xs text-white/60 leading-relaxed">
+                        You earn <span className="text-zii-accent font-bold">2.5%</span> of the total pool (50% of 5% platform fee) when your event is resolved.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Event History */}
+            <div className="bg-zii-card border border-white/5 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-white mb-4">Earnings History</h3>
+              <div className="space-y-2">
+                {myEvents.filter(e => e.status === 'resolved').length === 0 ? (
+                  <p className="text-center text-white/40 py-8 text-sm">No resolved events yet</p>
+                ) : (
+                  myEvents
+                    .filter(e => e.status === 'resolved')
+                    .map(event => (
+                      <div key={event.id} className="bg-black/20 p-4 rounded-xl border border-white/5">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-sm font-bold text-white flex-1 pr-2">{event.question}</p>
+                          <span className="text-sm font-mono font-bold text-green-400 whitespace-nowrap">
+                            +${(event.creator_share || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-white/40">
+                          <CheckCircle size={12} className="text-green-400" />
+                          <span>Resolved</span>
+                          <span>•</span>
+                          <span>Pool: ${(event.pool_size || 0).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'create' ? (
           <form onSubmit={handleDeploy} className="space-y-4">
             <div className="bg-zii-card border border-white/5 rounded-2xl p-5">
               <div className="space-y-3">
