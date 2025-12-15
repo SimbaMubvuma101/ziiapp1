@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebase';
-import { collection, addDoc, getDocs, doc, increment, serverTimestamp, query, where, onSnapshot, writeBatch, setDoc, orderBy, runTransaction } from 'firebase/firestore';
 import { Loader } from '../components/Loader';
 import { Zap, Activity, LogOut, CheckCircle, AlertTriangle, Layers, Home, Coins, ArrowLeft, Trophy, DollarSign, Users, Ticket, Copy, RefreshCw, Gauge, BarChart3, TrendingUp, TrendingDown, Calendar, Globe, Handshake, Link as LinkIcon, Info, Wallet, FileText, PieChart, ArrowUpRight, ArrowDownLeft, UserPlus, CreditCard, LayoutTemplate, Lightbulb, Dna, Settings, Save, Megaphone, Lock, Star } from 'lucide-react';
 import { PredictionType, PredictionStatus, Prediction, UserEntry, Affiliate, PlatformSettings, CreatorInvite } from '../types';

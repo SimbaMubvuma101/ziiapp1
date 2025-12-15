@@ -1,0 +1,161 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Loader } from '../components/Loader';
+import { Star, CheckCircle, AlertTriangle } from 'lucide-react';
+import { api } from '../utils/api';
+
+export const CreatorInvitePage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  
+  const [loading, setLoading] = useState(true);
+  const [claiming, setClaiming] = useState(false);
+  const [invite, setInvite] = useState<any>(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const code = searchParams.get('code');
+
+  useEffect(() => {
+    if (!code) {
+      setError('Invalid invite link');
+      setLoading(false);
+      return;
+    }
+
+    if (!currentUser) {
+      // Redirect to register with invite code
+      navigate(`/register?invite=${code}`);
+      return;
+    }
+
+    // Validate invite
+    const validateInvite = async () => {
+      try {
+        const inviteData = await api.validateCreatorInvite(code);
+        setInvite(inviteData);
+      } catch (err: any) {
+        setError(err.message || 'Invalid or expired invite');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    validateInvite();
+  }, [code, currentUser, navigate]);
+
+  const handleClaim = async () => {
+    if (!code) return;
+    
+    setClaiming(true);
+    setError('');
+
+    try {
+      await api.claimCreatorInvite(code);
+      setSuccess(true);
+      
+      // Redirect to creator studio after 2 seconds
+      setTimeout(() => {
+        navigate('/creator/studio');
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to claim invite');
+      setClaiming(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zii-bg flex items-center justify-center">
+        <Loader size={50} className="text-zii-accent" />
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-zii-bg flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-zii-card border border-zii-accent/20 rounded-3xl p-8 text-center">
+          <div className="w-20 h-20 bg-zii-accent/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={40} className="text-zii-accent" />
+          </div>
+          <h1 className="text-2xl font-black text-white mb-2">Welcome, Creator! 🎉</h1>
+          <p className="text-white/60 mb-4">Your creator account has been activated.</p>
+          <p className="text-sm text-white/40">Redirecting to Creator Studio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !invite) {
+    return (
+      <div className="min-h-screen bg-zii-bg flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-zii-card border border-red-500/20 rounded-3xl p-8 text-center">
+          <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle size={40} className="text-red-400" />
+          </div>
+          <h1 className="text-2xl font-black text-white mb-2">Invalid Invite</h1>
+          <p className="text-white/60 mb-6">{error || 'This invite link is invalid or has expired.'}</p>
+          <button
+            onClick={() => navigate('/earn')}
+            className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-xl transition-colors"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zii-bg flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-gradient-to-br from-zii-card to-white/5 border border-zii-accent/20 rounded-3xl p-8 text-center relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/10 blur-[50px] rounded-full pointer-events-none"></div>
+        
+        <div className="w-20 h-20 bg-zii-accent/20 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+          <Star size={40} className="text-zii-accent" />
+        </div>
+
+        <h1 className="text-3xl font-black text-white mb-2">Creator Invite</h1>
+        <p className="text-white/60 mb-8">You've been invited to become a Zii Creator!</p>
+
+        <div className="bg-black/20 border border-white/10 rounded-2xl p-6 mb-6 text-left">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-sm text-white/40 uppercase font-bold tracking-wider">Creator Name</span>
+            <span className="text-white font-bold">{invite.name}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-white/40 uppercase font-bold tracking-wider">Country</span>
+            <span className="text-white font-bold">{invite.country}</span>
+          </div>
+        </div>
+
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-6 text-left">
+          <p className="text-xs text-blue-200/80 leading-relaxed">
+            <strong>What you'll get:</strong><br/>
+            • Create custom prediction events<br/>
+            • Earn 50% commission on platform fees<br/>
+            • Build your community
+          </p>
+        </div>
+
+        <button
+          onClick={handleClaim}
+          disabled={claiming}
+          className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all shadow-lg shadow-zii-accent/20 flex items-center justify-center gap-2"
+        >
+          {claiming ? <Loader className="text-black" /> : <><Star size={20} /> Claim Creator Status</>}
+        </button>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <p className="text-xs text-red-400">{error}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
