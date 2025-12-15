@@ -116,14 +116,19 @@ export const AdminEngine: React.FC = () => {
   });
   const [stats, setStats] = useState({ users: 0, predictions: 0 });
 
+  const { isAdmin, logout, currentUser, userProfile, platformSettings, loading: authLoading } = useAuth();
+
   // 1. Redirect if not authorized locally
   useEffect(() => {
+    // Wait for auth to load before checking
+    if (authLoading) return;
+    
     if (!isAdmin) {
         navigate('/earn');
         return;
     }
     fetchStats();
-  }, [isAdmin, navigate]);
+  }, [isAdmin, navigate, authLoading]);
 
   // Sync Local Settings Form with Context
   useEffect(() => {
@@ -595,6 +600,15 @@ export const AdminEngine: React.FC = () => {
           {timeFrame && <p className="text-[10px] text-white/20 mt-1 font-medium">{timeFrame}</p>}
       </div>
   );
+
+  // Show loader while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-zii-bg flex items-center justify-center">
+        <Loader size={50} className="text-zii-accent" />
+      </div>
+    );
+  }
 
   if (!isAdmin) return null;
 

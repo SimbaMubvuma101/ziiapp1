@@ -34,8 +34,11 @@ export const Login: React.FC = () => {
     try {
       const response = await api.login(email, password);
       
-      // Refresh auth context
+      // Refresh auth context and wait for it to complete
       await refreshUser();
+      
+      // Small delay to ensure context has updated
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // ADMIN REDIRECT LOGIC
       if (email === 'admin@zii.app') {
