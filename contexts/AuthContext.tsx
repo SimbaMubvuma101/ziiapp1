@@ -154,6 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           (doc) => {
             if (doc.exists()) {
               const data = doc.data() as FirestoreUser;
+              console.log('Profile loaded:', { isCreator: data.isCreator, creator_name: data.creator_name });
               setUserProfile(data);
               
               // Ensure consistent country state if updated elsewhere
@@ -164,9 +165,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   setUserCountry(data.country);
                   localStorage.setItem('zii_user_country', data.country);
               }
+            } else {
+              console.log('Profile document does not exist');
             }
           },
-          (error) => console.log("Auth Snapshot Error:", error)
+          (error) => {
+            console.error("Auth Snapshot Error:", error);
+            // If permission denied, try to fetch once instead of listening
+            if (error.code === 'permission-denied') {
+              getDoc(userRef).then((doc) => {
+                if (doc.exists()) {
+                  const data = doc.data() as FirestoreUser;
+                  console.log('Profile fetched after permission error:', { isCreator: data.isCreator });
+                  setUserProfile(data);
+                }
+              }).catch(e => console.error('Fallback fetch failed:', e));
+            }
+          }
         );
 
         setLoading(false);

@@ -245,6 +245,7 @@ export const CreatorStudio: React.FC = () => {
   // CRITICAL: Show loader while profile is loading OR if user is logged in but profile hasn't loaded yet
   // This prevents the redirect logic from running before we know if user is a creator
   if (!userProfile && currentUser) {
+    console.log('CreatorStudio: Waiting for profile to load...');
     return (
       <div className="min-h-screen bg-zii-bg flex items-center justify-center">
         <Loader size={50} className="text-zii-accent" />
@@ -254,7 +255,14 @@ export const CreatorStudio: React.FC = () => {
   
   // Only redirect if we have confirmed the user is NOT a creator
   if (userProfile && !userProfile.isCreator) {
+    console.log('CreatorStudio: User is not a creator, redirecting to /earn');
+    navigate('/earn');
     return null;
+  }
+
+  // If we got here, user should be a creator - log for debugging
+  if (userProfile?.isCreator) {
+    console.log('CreatorStudio: Creator verified, rendering studio');
   }
 
   if (selectedPred) {
