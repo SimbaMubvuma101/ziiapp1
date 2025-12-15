@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { Prediction, PredictionStatus, UserEntry } from '../types';
 import { PredictionCard } from '../components/PredictionCard';
 import { EntryModal } from '../components/BetModal';
@@ -10,7 +11,7 @@ import { AuthPromptModal } from '../components/AuthPromptModal';
 import { LevelUpOverlay } from '../components/LevelUpOverlay';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, runTransaction, doc, serverTimestamp, deleteDoc, writeBatch, getDocs, increment } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, runTransaction, doc, serverTimestamp, deleteDoc, writeBatch, getDocs, increment, getDoc } from 'firebase/firestore';
 import { SplashLoader, Loader } from '../components/Loader';
 import { Trash2, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { calculateAMMOdds, FIXED_PAYOUT_AMOUNT } from '../utils/amm';
@@ -23,11 +24,13 @@ interface FeedProps {
 }
 
 export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick, adminStatusFilter }) => {
+  const { eventId } = useParams<{ eventId?: string }>();
   const { userProfile, currentUser, isAdmin: authIsAdmin, userCountry } = useAuth();
   // Force admin flag if we are in admin mode (implies parent checked permissions)
   const effectiveIsAdmin = adminMode || authIsAdmin;
 
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [specificEvent, setSpecificEvent] = useState<Prediction | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Track which events the user has already bet on
@@ -39,6 +42,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   const [selectedEntryPrediction, setSelectedEntryPrediction] = useState<Prediction | null>(null); // For detail context (countdown)
   
   const [activeTab, setActiveTab] = useState('All');
+  const [feedSection, setFeedSection] = useState<'main' | 'creator'>(eventId ? 'creator' : 'main');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
@@ -134,6 +138,42 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       return () => unsubscribe();
   }, [userProfile]);
 
+  // 1.5. Fetch Specific Event if eventId is provided
+  useEffect(() => {
+    if (!eventId) {
+      setSpecificEvent(null);
+      return;
+    }
+
+    const fetchSpecificEvent = async () => {
+      try {
+        const eventDoc = await getDoc(doc(db, "predictions", eventId));
+        if (eventDoc.exists()) {
+          const data = eventDoc.data();
+          
+          let closesAtStr = new Date(Date.now() + 31536000000).toISOString();
+          if (data.closes_at) {
+            if (data.closes_at.toDate) {
+              closesAtStr = data.closes_at.toDate().toISOString();
+            } else if (typeof data.closes_at === 'string') {
+              closesAtStr = data.closes_at;
+            }
+          }
+
+          setSpecificEvent({
+            id: eventDoc.id,
+            ...data,
+            closes_at: closesAtStr
+          } as Prediction);
+        }
+      } catch (error) {
+        console.error("Error fetching specific event:", error);
+      }
+    };
+
+    fetchSpecificEvent();
+  }, [eventId]);
+
   // 2. Fetch Predictions Real-time
   useEffect(() => {
     let q;
@@ -206,7 +246,14 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
            });
       } else {
           // User: Strictly Deadline (Soonest Closing First)
-          preds.sort((a, b) => new Date(a.closes_at).getTime() - new Date(b.closes_at).getTime());
+          preds.sort((a, b) => {
+              // If we have a specific event, prioritize it
+              if (eventId) {
+                  if (a.id === eventId) return -1;
+                  if (b.id === eventId) return 1;
+              }
+              return new Date(a.closes_at).getTime() - new Date(b.closes_at).getTime();
+          });
       }
 
       setPredictions(preds);
@@ -559,8 +606,17 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
          }
          return false;
       });
-  } else if (!adminMode && activeTab !== 'All') {
-      filteredPredictions = predictions.filter(p => p.category === activeTab);
+  } else if (!adminMode) {
+      // Filter by section: creator events vs main events
+      filteredPredictions = predictions.filter(p => {
+          const isCreatorEvent = !!p.created_by_creator;
+          return feedSection === 'creator' ? isCreatorEvent : !isCreatorEvent;
+      });
+      
+      // Then filter by category if not 'All'
+      if (activeTab !== 'All') {
+          filteredPredictions = filteredPredictions.filter(p => p.category === activeTab);
+      }
   }
 
   // Replaced simple loader with SplashLoader
@@ -612,6 +668,34 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
             reward={newLevelData.reward} 
             onClose={() => setNewLevelData(null)} 
           />
+      )}
+
+      {/* Feed Section Toggle (Hide in Admin Mode) */}
+      {!adminMode && (
+        <div className="mb-6">
+            <div className="flex p-1 bg-white/5 rounded-xl border border-white/5">
+                <button
+                    onClick={() => setFeedSection('main')}
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
+                        feedSection === 'main'
+                            ? 'bg-zii-card text-white shadow-sm'
+                            : 'text-white/40 hover:text-white/60'
+                    }`}
+                >
+                    Main Events
+                </button>
+                <button
+                    onClick={() => setFeedSection('creator')}
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
+                        feedSection === 'creator'
+                            ? 'bg-zii-card text-white shadow-sm'
+                            : 'text-white/40 hover:text-white/60'
+                    }`}
+                >
+                    Creator Events
+                </button>
+            </div>
+        </div>
       )}
 
       {/* Category Tabs (Hide in Admin Mode) */}

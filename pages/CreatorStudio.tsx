@@ -242,8 +242,8 @@ export const CreatorStudio: React.FC = () => {
   };
 
   const copyEventLink = (eventId: string) => {
-    const baseUrl = window.location.href.split('#')[0];
-    const link = `${baseUrl}#/creator/event/${eventId}`;
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}/#/creator/event/${eventId}`;
     navigator.clipboard.writeText(link);
     setStatusMsg(`Link copied!`);
   };
