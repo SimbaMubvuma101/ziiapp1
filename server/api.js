@@ -475,4 +475,151 @@ router.put('/settings', authenticateMiddleware, adminMiddleware, async (req, res
   }
 });
 
+// ============ CREATOR INVITES ============
+
+router.get('/admin/creator-invites', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM creator_invites ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get creator invites error:', err);
+    res.status(500).json({ error: 'Failed to fetch creator invites' });
+  }
+});
+
+router.post('/admin/creator-invites', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { name, country } = req.body;
+    const code = `CREATOR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    
+    const result = await pool.query(
+      `INSERT INTO creator_invites (code, name, country, status, created_by)
+       VALUES ($1, $2, $3, 'active', $4) RETURNING *`,
+      [code, name, country, req.user.uid]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Create creator invite error:', err);
+    res.status(500).json({ error: 'Failed to create invite' });
+  }
+});
+
+router.post('/admin/creator-invites/:id/revoke', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE creator_invites SET status = $1 WHERE id = $2',
+      ['revoked', req.params.id]
+    );
+    res.json({ message: 'Invite revoked' });
+  } catch (err) {
+    console.error('Revoke invite error:', err);
+    res.status(500).json({ error: 'Failed to revoke invite' });
+  }
+});
+
+router.get('/creator-invites/validate/:code', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM creator_invites WHERE code = $1 AND status = $2',
+      [req.params.code, 'active']
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Invite not found or expired' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Validate invite error:', err);
+    res.status(500).json({ error: 'Failed to validate invite' });
+  }
+});
+
+router.post('/creator-invites/claim', authenticateMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { code } = req.body;
+
+    await client.query('BEGIN');
+
+    const inviteResult = await client.query(
+      'SELECT * FROM creator_invites WHERE code = $1 AND status = $2',
+      [code, 'active']
+    );
+
+    if (inviteResult.rows.length === 0) {
+      throw new Error('Invalid or expired invite');
+    }
+
+    const invite = inviteResult.rows[0];
+
+    await client.query(
+      'UPDATE creator_invites SET status = $1, claimed_by = $2, claimed_at = CURRENT_TIMESTAMP WHERE id = $3',
+      ['claimed', req.user.uid, invite.id]
+    );
+
+    await client.query(
+      `UPDATE users SET 
+       is_creator = true, 
+       creator_name = $1, 
+       creator_country = $2,
+       total_events_created = 0,
+       total_commission_earned = 0
+       WHERE uid = $3`,
+      [invite.name, invite.country, req.user.uid]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Creator invite claimed' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Claim invite error:', err);
+    res.status(400).json({ error: err.message || 'Failed to claim invite' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============ CASHOUT ============
+
+router.post('/wallet/cashout', authenticateMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { amount, phone, method } = req.body;
+
+    await client.query('BEGIN');
+
+    const userResult = await client.query('SELECT winnings_balance FROM users WHERE uid = $1', [req.user.uid]);
+    const currentBalance = userResult.rows[0].winnings_balance;
+
+    if (currentBalance < amount) {
+      throw new Error('Insufficient balance');
+    }
+
+    const fee = amount * 0.10;
+    const netAmount = amount - fee;
+
+    await client.query(
+      'UPDATE users SET winnings_balance = winnings_balance - $1 WHERE uid = $2',
+      [amount, req.user.uid]
+    );
+
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, description, payment_method)
+       VALUES ($1, 'cashout', $2, $3, $4)`,
+      [req.user.uid, -amount, `Cashout to ${phone}`, method]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Cashout request submitted', net_amount: netAmount });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Cashout error:', err);
+    res.status(400).json({ error: err.message || 'Failed to process cashout' });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;

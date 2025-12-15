@@ -102,6 +102,18 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS creator_invites (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(100) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        country VARCHAR(10) NOT NULL,
+        status VARCHAR(50) DEFAULT 'active',
+        created_by VARCHAR(255) REFERENCES users(uid),
+        claimed_by VARCHAR(255) REFERENCES users(uid),
+        claimed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS platform_settings (
         id INTEGER PRIMARY KEY DEFAULT 1,
         maintenance_mode BOOLEAN DEFAULT false,

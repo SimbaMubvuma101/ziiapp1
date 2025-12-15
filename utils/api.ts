@@ -210,6 +210,21 @@ class ApiClient {
       body: JSON.stringify({ code }),
     });
   }
+
+  // Stripe/Payment endpoints
+  async createCheckoutSession(amount: number) {
+    return this.request<{ url: string }>('/stripe/create-checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  }
+
+  async requestCashout(data: { amount: number; phone: string; method: string }) {
+    return this.request('/wallet/cashout', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient();
