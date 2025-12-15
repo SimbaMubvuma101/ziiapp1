@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ChevronRight, DollarSign } from 'lucide-react';
 import { WHATSAPP_PHONE } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
+import { StripeCheckout } from './StripeCheckout';
 
 interface BuyModalProps {
   onClose: () => void;
@@ -88,19 +89,33 @@ export const BuyModal: React.FC<BuyModalProps> = ({ onClose }) => {
             <span className="text-[10px] text-white/20 font-medium tracking-wide mt-1">Exchange Rate: 1 Coin = {currencySymbol}{exchangeRate.toFixed(0)}</span>
           </div>
 
-          <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-             <p className="text-[10px] text-white/40 text-center">
-                Your User ID will be automatically attached to the WhatsApp message so we can credit your account.
+          <div className="bg-white/5 p-3 rounded-xl border border-white/5 mb-4">
+             <p className="text-[10px] text-white/40 text-center font-bold uppercase tracking-wide mb-1">
+                Choose Payment Method
              </p>
           </div>
 
-          <button
-            onClick={handleContinue}
-            disabled={coins <= 0}
-            className="w-full bg-white text-black font-bold text-lg py-4 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-zii-accent disabled:opacity-50 disabled:grayscale shadow-lg shadow-white/5"
-          >
-            Buy Now <ChevronRight size={20} />
-          </button>
+          <div className="space-y-3">
+            <StripeCheckout 
+              coins={coins} 
+              costUsd={costUsd} 
+              onClose={onClose}
+            />
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/10"></div>
+              <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Or</span>
+              <div className="flex-1 h-px bg-white/10"></div>
+            </div>
+
+            <button
+              onClick={handleContinue}
+              disabled={coins <= 0}
+              className="w-full bg-white/10 text-white font-bold text-lg py-4 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-white/20 disabled:opacity-50 disabled:grayscale border border-white/10"
+            >
+              Pay via WhatsApp <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

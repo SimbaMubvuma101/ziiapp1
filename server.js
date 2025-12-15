@@ -8,6 +8,19 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = parseInt(process.env.PORT) || 8080;
 
+// Body parser for JSON (except webhook route)
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
+
+// Stripe API routes
+const stripeRoutes = require('./server/stripe');
+app.use('/api', stripeRoutes);
+
 // Serve static files from the dist directory (Vite build output)
 app.use(express.static(path.join(__dirname, 'dist')));
 

@@ -9,18 +9,37 @@ import { LevelUpOverlay } from '../components/LevelUpOverlay';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, runTransaction, doc, serverTimestamp } from 'firebase/firestore';
 import { Transaction } from '../types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GAME_CONFIG, getLevelFromXP, isMilestoneLevel } from '../utils/gamification';
 
 export const Wallet: React.FC = () => {
   const { userProfile, currentUser, currencySymbol, exchangeRate } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [redeemSuccess, setRedeemSuccess] = useState<{ amount: number } | null>(null);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+
+  // Check for payment status in URL
+  useEffect(() => {
+    const status = searchParams.get('payment');
+    if (status) {
+      setPaymentStatus(status);
+      // Clear the query param
+      setSearchParams({});
+      
+      // Show notification
+      if (status === 'success') {
+        setTimeout(() => setPaymentStatus(null), 5000);
+      } else if (status === 'cancelled') {
+        setTimeout(() => setPaymentStatus(null), 3000);
+      }
+    }
+  }, [searchParams, setSearchParams]);
   
   // Level Up State
   const [newLevelData, setNewLevelData] = useState<{level: number, reward?: number} | null>(null);
@@ -209,6 +228,21 @@ export const Wallet: React.FC = () => {
 
   return (
     <div className="pb-24 pt-8 px-4 animate-in fade-in duration-500">
+      
+      {/* Payment Status Notification */}
+      {paymentStatus === 'success' && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg animate-in slide-in-from-top-4 fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={20} />
+            <span className="font-bold">Payment successful! Coins added.</span>
+          </div>
+        </div>
+      )}
+      {paymentStatus === 'cancelled' && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg animate-in slide-in-from-top-4 fade-in">
+          <span className="font-bold">Payment cancelled</span>
+        </div>
+      )}
       
       {/* Level Up Overlay */}
       {newLevelData && (
