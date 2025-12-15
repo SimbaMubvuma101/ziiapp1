@@ -54,15 +54,19 @@ export const Register: React.FC = () => {
     setLoading(true);
 
     try {
+      console.log('Attempting registration...');
       await api.register({
         name,
         email,
         password,
         phone,
         referralCode: referralCode.trim() || undefined,
-        affiliateId: referralCode.trim() || undefined
+        affiliateId: referralCode.trim() || undefined,
+        country: localStorage.getItem('zii_user_country') || 'ZW'
       });
 
+      console.log('Registration successful');
+      
       // Registration successful - redirect to login or home
       if (email === 'admin@zii.app') {
         navigate('/admin');

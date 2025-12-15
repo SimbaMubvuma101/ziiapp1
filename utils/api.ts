@@ -74,12 +74,18 @@ class ApiClient {
     affiliateId?: string;
     country?: string;
   }) {
-    const response = await this.request<{ token: string; user: any }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-    this.setToken(response.token);
-    return response;
+    try {
+      console.log('Registering user:', userData.email);
+      const response = await this.request<{ token: string; user: any }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      this.setToken(response.token);
+      return response;
+    } catch (err) {
+      console.error('Registration API error:', err);
+      throw err;
+    }
   }
 
   async login(email: string, password: string) {

@@ -18,7 +18,9 @@ const router = express.Router();
 router.post('/auth/register', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { name, email, password, phone, referralCode, affiliateId } = req.body;
+    const { name, email, password, phone, referralCode, affiliateId, country } = req.body;
+
+    console.log('Registration attempt:', { name, email, phone, country });
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -40,11 +42,11 @@ router.post('/auth/register', async (req, res) => {
     const settingsResult = await client.query('SELECT welcome_bonus FROM platform_settings WHERE id = 1');
     const welcomeBonus = settingsResult.rows[0]?.welcome_bonus || 100;
 
-    // Create user
+    // Create user with country
     await client.query(
-      `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, affiliate_id, referred_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, affiliateId || null, referralCode || null]
+      `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, affiliate_id, referred_by, country)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, affiliateId || null, referralCode || null, country || 'ZW']
     );
 
     // Create welcome transaction
@@ -57,9 +59,12 @@ router.post('/auth/register', async (req, res) => {
     await client.query('COMMIT');
 
     const token = generateToken({ uid, email, is_admin: email === 'admin@zii.app' });
-    res.json({ token, user: { uid, name, email, balance: welcomeBonus } });
+    
+    console.log('Registration successful:', uid);
+    
+    res.status(200).json({ token, user: { uid, name, email, balance: welcomeBonus, country: country || 'ZW' } });
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Registration error:', err);
     res.status(500).json({ error: err.message || 'Registration failed' });
   } finally {
