@@ -62,13 +62,13 @@ export const TopBar: React.FC = () => {
   }, [currentUser]);
 
   // Derived values
-  const username = userData?.name || currentUser?.displayName || "Zii_User";
+  const username = userData?.name || currentUser?.name || "Zii_User";
   const email = userData?.email || currentUser?.email;
   const initials = username.charAt(0).toUpperCase();
-  // We use the auth metadata creation time as fallback
-  const joinedDate = currentUser?.metadata.creationTime 
-    ? new Date(currentUser.metadata.creationTime).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    : "Nov 2024";
+  // Use created_at from backend user data
+  const joinedDate = userData?.created_at 
+    ? new Date(userData.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : "Dec 2024";
 
   const balance = userProfile?.balance || 0;
   // SCALE BALANCE based on country exchange rate
