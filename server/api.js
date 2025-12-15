@@ -1,15 +1,15 @@
 
-const express = require('express');
-const { pool } = require('./db');
-const { 
+import express from 'express';
+import { pool } from './db.js';
+import { 
   hashPassword, 
   comparePassword, 
   generateToken, 
   generateVerificationToken,
   authenticateMiddleware,
   adminMiddleware 
-} = require('./auth');
-const { v4: uuidv4 } = require('uuid');
+} from './auth.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -475,4 +475,4 @@ router.put('/settings', authenticateMiddleware, adminMiddleware, async (req, res
   }
 });
 
-module.exports = router;
+export default router;

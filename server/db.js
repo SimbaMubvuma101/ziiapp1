@@ -1,13 +1,14 @@
 
-const { Pool } = require('pg');
+import pkg from 'pg';
+const { Pool } = pkg;
 
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Initialize database schema
-async function initDatabase() {
+export async function initDatabase() {
   const client = await pool.connect();
   try {
     await client.query(`
@@ -136,5 +137,3 @@ async function initDatabase() {
     client.release();
   }
 }
-
-module.exports = { pool, initDatabase };
