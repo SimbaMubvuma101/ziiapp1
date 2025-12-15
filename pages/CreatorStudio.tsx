@@ -46,11 +46,6 @@ export const CreatorStudio: React.FC = () => {
   const [confirmStep, setConfirmStep] = useState(0);
 
   useEffect(() => {
-    if (!currentUser) {
-      navigate('/earn');
-      return;
-    }
-
     const getFutureDate = (hours: number) => {
       const d = new Date();
       d.setTime(d.getTime() + hours * 60 * 60 * 1000);
@@ -68,7 +63,7 @@ export const CreatorStudio: React.FC = () => {
     });
 
     return () => unsub();
-  }, [currentUser, userProfile, navigate]);
+  }, [currentUser, userProfile]);
 
   useEffect(() => {
     if (!selectedPred) return;
