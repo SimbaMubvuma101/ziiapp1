@@ -121,12 +121,16 @@ export const AdminEngine: React.FC = () => {
     // Wait for auth to load before checking
     if (authLoading) return;
     
-    if (!isAdmin) {
+    // Only redirect if we have a user but they're not admin
+    if (currentUser && !isAdmin) {
         navigate('/earn');
         return;
     }
-    fetchStats();
-  }, [isAdmin, navigate, authLoading]);
+    
+    if (isAdmin) {
+        fetchStats();
+    }
+  }, [isAdmin, navigate, authLoading, currentUser]);
 
   // Sync Local Settings Form with Context
   useEffect(() => {
@@ -599,8 +603,8 @@ export const AdminEngine: React.FC = () => {
       </div>
   );
 
-  // Show loader while auth is loading
-  if (authLoading) {
+  // Show loader while auth is loading or checking admin status
+  if (authLoading || !currentUser) {
     return (
       <div className="min-h-screen bg-zii-bg flex items-center justify-center">
         <Loader size={50} className="text-zii-accent" />
@@ -608,6 +612,7 @@ export const AdminEngine: React.FC = () => {
     );
   }
 
+  // If we have a user but they're not admin, return null (redirect will happen in useEffect)
   if (!isAdmin) return null;
 
   // Aggregate Partner Stats
