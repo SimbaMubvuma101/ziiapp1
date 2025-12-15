@@ -61,3 +61,8 @@ externalPort = 3001
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.shared]
+NODE_ENV = "production"
