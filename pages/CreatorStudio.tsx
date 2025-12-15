@@ -51,8 +51,9 @@ export const CreatorStudio: React.FC = () => {
       return;
     }
     
-    // Wait for userProfile to load before checking creator status
-    if (userProfile && !userProfile.isCreator) {
+    // Only redirect if profile has loaded and user is definitively not a creator
+    // This prevents premature redirects during profile loading
+    if (userProfile !== null && !userProfile.isCreator) {
       navigate('/earn');
       return;
     }
