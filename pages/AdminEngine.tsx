@@ -10,7 +10,7 @@ import { SUPPORTED_COUNTRIES } from '../constants';
 import { api } from '../utils/api';
 
 export const AdminEngine: React.FC = () => {
-  const { isAdmin, logout, currentUser, userProfile, platformSettings } = useAuth();
+  const { isAdmin, logout, currentUser, userProfile, platformSettings, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Tabs: 'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'creators' | 'settings'
@@ -115,8 +115,6 @@ export const AdminEngine: React.FC = () => {
       payout: 15
   });
   const [stats, setStats] = useState({ users: 0, predictions: 0 });
-
-  const { isAdmin, logout, currentUser, userProfile, platformSettings, loading: authLoading } = useAuth();
 
   // 1. Redirect if not authorized locally
   useEffect(() => {
