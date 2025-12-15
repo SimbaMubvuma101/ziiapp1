@@ -397,13 +397,14 @@ export const AdminEngine: React.FC = () => {
               created_by: currentUser?.uid
           });
 
-          setNewCreatorName('');
           setStatusMsg("Creator Invite Generated!");
           
           // Copy link immediately
           const baseUrl = window.location.href.split('#')[0];
-          const link = `${baseUrl}#/creator/invite?code=${code}`;
+          const creatorSlug = newCreatorName.toLowerCase().replace(/\s+/g, '');
+          const link = `${baseUrl}#/${creatorSlug}`;
           navigator.clipboard.writeText(link);
+          setNewCreatorName('');
       } catch (e: any) {
           setStatusMsg(e.message);
       } finally {
@@ -424,8 +425,12 @@ export const AdminEngine: React.FC = () => {
   };
 
   const copyCreatorInviteLink = (code: string) => {
+      const invite = creatorInvites.find(i => i.code === code);
+      if (!invite) return;
+      
       const baseUrl = window.location.href.split('#')[0];
-      const link = `${baseUrl}#/creator/invite?code=${code}`;
+      const creatorSlug = invite.name.toLowerCase().replace(/\s+/g, '');
+      const link = `${baseUrl}#/${creatorSlug}`;
       navigator.clipboard.writeText(link);
       setStatusMsg(`Invite link copied!`);
   };

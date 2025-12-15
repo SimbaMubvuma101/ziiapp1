@@ -24,14 +24,56 @@ export const CreatorInvitePage: React.FC = () => {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     
+    // Check for old-style ?code= format
     if (code) {
       setInviteCode(code);
       validateInvite(code);
+      return;
+    }
+    
+    // Check for new-style /:creatorname format
+    const pathParts = location.pathname.split('/');
+    const creatorName = pathParts[pathParts.length - 1];
+    
+    if (creatorName && creatorName !== 'creator') {
+      validateInviteByName(creatorName);
     } else {
       setError('Invalid invite link');
       setLoading(false);
     }
   }, [location]);
+
+  const validateInviteByName = async (creatorSlug: string) => {
+    try {
+      // Convert slug back to name format for query
+      const snapshot = await getDocs(collection(db, "creator_invites"));
+      const matchingInvite = snapshot.docs.find(doc => {
+        const data = doc.data();
+        const slug = data.name.toLowerCase().replace(/\s+/g, '');
+        return slug === creatorSlug.toLowerCase() && data.status === 'active';
+      });
+      
+      if (!matchingInvite) {
+        setError('Invite not found');
+        setLoading(false);
+        return;
+      }
+
+      const inviteData = { id: matchingInvite.id, ...matchingInvite.data() } as CreatorInvite;
+      setInviteCode(inviteData.code);
+      setInvite(inviteData);
+      setLoading(false);
+
+      // Auto-claim if user is signed in
+      if (currentUser && userProfile && !userProfile.isCreator) {
+        handleClaim();
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to validate invite');
+      setLoading(false);
+    }
+  };
 
   const validateInvite = async (code: string) => {
     try {
