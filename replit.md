@@ -19,7 +19,7 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 
 ### API Structure
 - `/api/auth/*` - Authentication endpoints (login, register, profile, delete-account)
-- `/api/predictions/*` - Prediction CRUD and resolution (including DELETE endpoint)
+- `/api/predictions/*` - Prediction CRUD and resolution
 - `/api/entries/*` - User entries/bets
 - `/api/wallet/*` - Balance, transactions, voucher redemption, cashout
 - `/api/admin/*` - Admin dashboard endpoints
@@ -29,29 +29,22 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 
 ### Key Files
 - `server.js` - Express server entry point
-- `server/api.js` - API route definitions (includes DELETE /predictions/:id)
+- `server/api.js` - API route definitions
 - `server/db.js` - PostgreSQL connection and schema
 - `server/auth.js` - JWT authentication helpers
-- `utils/api.ts` - Frontend API client (includes deletePrediction method)
+- `utils/api.ts` - Frontend API client
 - `contexts/AuthContext.tsx` - React auth context
-- `pages/AdminEngine.tsx` - Simplified admin dashboard (fixed blank page issue)
 
-## Recent Changes (December 15, 2024)
+## Recent Changes (December 2024)
 
-### TypeScript & Admin Page Fixes
-- Resolved all TypeScript compilation errors in components and pages
-- Added Vite environment type definitions (src/vite-env.d.ts)
-- Fixed Active.tsx, AdminEngine.tsx, Wallet.tsx with proper type casting
-- Added DELETE endpoint for predictions: `DELETE /api/predictions/:id`
-- Simplified AdminEngine.tsx component to fix blank page issue on login
-- Added proper null safety and error handling in analytics fetch
+### Firebase to PostgreSQL Migration
+- Removed all Firebase/Firestore dependencies from frontend
+- Migrated AuthContext to use custom JWT authentication
+- Updated all pages to use backend API client
+- Added Vite proxy configuration for development
+- Added new API endpoints: /auth/profile, /auth/delete-account, /affiliates/validate
 
-### Build Status
-- ✅ Production build succeeds (all TypeScript errors resolved)
-- ✅ No runtime crashes on app load
-- ✅ Admin dashboard renders properly
-
-## Two-Server Development Setup
+### Two-Server Development Setup
 - Vite dev server on port 5000 (frontend + proxy)
 - Express API server on port 3001 (backend)
 - API requests proxied from /api/* to backend
@@ -66,9 +59,3 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 - Backend: `node server.js` (port 3001)
 - Frontend: `npm run dev` (port 5000)
 - Both must run simultaneously for full functionality
-
-## Known Fixed Issues
-- ✅ Admin page no longer goes blank after login
-- ✅ All TypeScript type errors resolved
-- ✅ Missing DELETE prediction endpoint added
-- ✅ Analytics data properly initialized with defaults
