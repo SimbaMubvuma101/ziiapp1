@@ -29,6 +29,15 @@ export const CreatorStudio: React.FC = () => {
     { label: 'Yes', payout: 15 },
     { label: 'No', payout: 15 }
   ]);
+
+  // Reset options when type changes
+  useEffect(() => {
+    if (deployType === PredictionType.YES_NO) {
+      setOptions([{ label: 'Yes', payout: 15 }, { label: 'No', payout: 15 }]);
+    } else if (deployType === PredictionType.MULTIPLE_CHOICE) {
+      setOptions([{ label: '', payout: 15 }, { label: '', payout: 15 }, { label: '', payout: 15 }]);
+    }
+  }, [deployType]);
   
   // Detail View
   const [selectedPred, setSelectedPred] = useState<Prediction | null>(null);
@@ -424,10 +433,22 @@ export const CreatorStudio: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="text-[10px] text-white/40 uppercase font-bold pl-1 mb-2 block">Options</label>
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <label className="text-[10px] text-white/40 uppercase font-bold pl-1">Question Type</label>
+                  <select 
+                    value={deployType} 
+                    onChange={(e) => setDeployType(e.target.value as PredictionType)} 
+                    className="w-full bg-black/20 border border-white/10 text-white p-3 rounded-xl text-sm font-bold focus:outline-none focus:border-zii-accent/50"
+                  >
+                    <option value={PredictionType.YES_NO}>Yes / No (Binary)</option>
+                    <option value={PredictionType.MULTIPLE_CHOICE}>Multiple Choice</option>
+                  </select>
+                </div>
+
+                <div className="space-y-3 bg-black/20 p-4 rounded-2xl border border-white/5">
+                  <label className="text-[10px] text-white/40 uppercase font-bold">Options Configuration</label>
                   {options.map((opt, idx) => (
-                    <div key={idx} className="flex gap-2 mb-2">
+                    <div key={idx} className="flex gap-2 items-center">
                       <input 
                         value={opt.label} 
                         onChange={e => {
@@ -435,12 +456,14 @@ export const CreatorStudio: React.FC = () => {
                           newOpts[idx].label = e.target.value;
                           setOptions(newOpts);
                         }}
-                        className="flex-1 bg-zii-card border border-white/10 p-3 rounded-xl text-sm text-white"
+                        className="flex-1 bg-zii-card border border-white/10 p-3 rounded-xl text-sm text-white focus:outline-none focus:border-white/30 transition-all"
                         placeholder={`Option ${idx + 1}`}
                         readOnly={deployType === PredictionType.YES_NO}
                       />
+                      <div className="w-20 bg-white/5 border border-white/5 p-3 rounded-xl text-sm text-center text-white/30 font-mono select-none">Auto</div>
                     </div>
                   ))}
+                  <p className="text-[10px] text-white/20 text-center pt-1 italic">*Pricing Engine auto-seeds liquidity.</p>
                 </div>
               </div>
             </div>
