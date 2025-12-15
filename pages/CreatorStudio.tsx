@@ -1,24 +1,21 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
-import { collection, addDoc, query, where, onSnapshot, doc, serverTimestamp, runTransaction, writeBatch, increment } from 'firebase/firestore';
 import { Loader } from '../components/Loader';
-import { Zap, Star, TrendingUp, Copy, CheckCircle, AlertTriangle, Trophy, Coins, ArrowLeft, Share2, Globe } from 'lucide-react';
+import { Zap, Star, Copy, CheckCircle, AlertTriangle, Trophy, ArrowLeft, Share2 } from 'lucide-react';
 import { PredictionType, PredictionStatus, Prediction, UserEntry } from '../types';
 import { calculateAMMOdds } from '../utils/amm';
-import { SUPPORTED_COUNTRIES } from '../constants';
+import { api } from '../utils/api';
 
 export const CreatorStudio: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
-  
+
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [myEvents, setMyEvents] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
-  
+
   // Create Form
   const [question, setQuestion] = useState('');
   const [category, setCategory] = useState('Trends & Viral');
@@ -38,7 +35,7 @@ export const CreatorStudio: React.FC = () => {
       setOptions([{ label: '', payout: 15 }, { label: '', payout: 15 }, { label: '', payout: 15 }]);
     }
   }, [deployType]);
-  
+
   // Detail View
   const [selectedPred, setSelectedPred] = useState<Prediction | null>(null);
   const [predEntries, setPredEntries] = useState<UserEntry[]>([]);
@@ -54,35 +51,42 @@ export const CreatorStudio: React.FC = () => {
     };
     setClosingTime(getFutureDate(24));
 
-    // Subscribe to creator's events
-    if (!currentUser?.uid) return;
-    const q = query(collection(db, "predictions"), where("created_by_creator", "==", currentUser.uid));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const events = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Prediction[];
-      events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-      setMyEvents(events);
-    });
+    // Subscribe to creator's events using API
+    const fetchMyEvents = async () => {
+      if (!currentUser?.uid) return;
+      try {
+        const events = await api.getPredictions({ creatorId: currentUser.uid });
+        events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        setMyEvents(events);
+      } catch (err) {
+        console.error('Failed to fetch creator events:', err);
+      }
+    };
 
-    return () => unsub();
+    fetchMyEvents();
+    // Poll for updates
+    const interval = setInterval(fetchMyEvents, 10000);
+    return () => clearInterval(interval);
   }, [currentUser, userProfile]);
 
   useEffect(() => {
     if (!selectedPred) return;
 
-    const q = query(collection(db, "entries"), where("prediction_id", "==", selectedPred.id));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const entries = snapshot.docs.map(d => {
-        const data = d.data();
-        let createdAtStr = new Date().toISOString();
-        if (data.created_at?.toDate) {
-          createdAtStr = data.created_at.toDate().toISOString();
-        }
-        return { id: d.id, ...data, created_at: createdAtStr } as UserEntry;
-      });
-      setPredEntries(entries);
-    });
+    // Load entries using API
+    const loadEntries = async () => {
+      try {
+        const entries = await api.getEntries();
+        const predEntries = entries.filter(e => e.prediction_id === selectedPred.id);
+        setPredEntries(predEntries);
+      } catch (err) {
+        console.error('Failed to load entries:', err);
+      }
+    };
 
-    return () => unsub();
+    loadEntries();
+    // Poll for updates
+    const interval = setInterval(loadEntries, 5000);
+    return () => clearInterval(interval);
   }, [selectedPred]);
 
   const handleDeploy = async (e: React.FormEvent) => {
@@ -101,7 +105,6 @@ export const CreatorStudio: React.FC = () => {
         status: PredictionStatus.OPEN,
         pool_size: 0,
         closes_at: closesAt,
-        created_at: serverTimestamp(),
         liquidity_pool: {},
         mode: 'normal',
         multiplier: 1,
@@ -125,20 +128,17 @@ export const CreatorStudio: React.FC = () => {
       payload.options = updatedOptions;
       payload.liquidity_pool = liquidityMap;
 
-      await addDoc(collection(db, "predictions"), payload);
+      await api.createPrediction(payload);
       
-      // Update creator stats
-      const userRef = doc(db, "users", currentUser!.uid);
-      await runTransaction(db, async (transaction) => {
-        transaction.update(userRef, {
-          total_events_created: increment(1)
-        });
-      });
-
       setStatusMsg('Event Created Successfully!');
       setQuestion('');
       setResolutionSource('');
       setActiveTab('manage');
+
+      // Refresh events after creation
+      const events = await api.getPredictions({ creatorId: currentUser!.uid });
+      events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      setMyEvents(events);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setStatusMsg(`Failed: ${errorMessage}`);
@@ -152,78 +152,14 @@ export const CreatorStudio: React.FC = () => {
     setLoading(true);
 
     try {
-      const totalPool = predEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-      const platformCommission = totalPool * 0.05;
-      const creatorCommission = platformCommission * 0.5; // 50% of platform commission
-      const distributablePool = totalPool - platformCommission;
-      
-      const winners = predEntries.filter(e => e.selected_option_id === winningOption);
-      const losers = predEntries.filter(e => e.selected_option_id !== winningOption);
-      const winningVolume = winners.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-      const payoutRatio = winningVolume > 0 ? (distributablePool / winningVolume) : 0;
-
-      const BATCH_SIZE_LIMIT = 450;
-      let opsCount = 0;
-      let batches = [];
-      let currentBatch = writeBatch(db);
-
-      const predRef = doc(db, "predictions", selectedPred.id);
-      currentBatch.update(predRef, { 
-        status: PredictionStatus.RESOLVED, 
-        winning_option_id: winningOption,
-        creator_share: creatorCommission 
-      });
-      opsCount++;
-
-      // Credit creator
-      const creatorRef = doc(db, "users", selectedPred.created_by_creator!);
-      currentBatch.update(creatorRef, { 
-        winnings_balance: increment(creatorCommission),
-        total_commission_earned: increment(creatorCommission)
-      });
-      opsCount++;
-
-      const creatorTxRef = doc(collection(db, "transactions"));
-      currentBatch.set(creatorTxRef, {
-        userId: selectedPred.created_by_creator,
-        type: 'winnings',
-        amount: creatorCommission,
-        description: `Creator Commission: ${selectedPred.question.substring(0, 20)}...`,
-        created_at: serverTimestamp()
-      });
-      opsCount++;
-
-      for (const entry of winners) {
-        if (opsCount >= BATCH_SIZE_LIMIT) { batches.push(currentBatch); currentBatch = writeBatch(db); opsCount = 0; }
-        const entryRef = doc(db, "entries", entry.id);
-        const userRef = doc(db, "users", entry.userId);
-        const txRef = doc(collection(db, "transactions"));
-        const actualPayout = (entry.amount || 0) * payoutRatio;
-
-        currentBatch.update(entryRef, { status: 'won', potential_payout: actualPayout });
-        currentBatch.update(userRef, { winnings_balance: increment(actualPayout) });
-        currentBatch.set(txRef, { 
-          userId: entry.userId, 
-          type: 'winnings', 
-          amount: actualPayout, 
-          description: `Won: ${selectedPred.question.substring(0, 15)}...`, 
-          created_at: serverTimestamp() 
-        });
-        opsCount += 3;
-      }
-
-      for (const entry of losers) {
-        if (opsCount >= BATCH_SIZE_LIMIT) { batches.push(currentBatch); currentBatch = writeBatch(db); opsCount = 0; }
-        const entryRef = doc(db, "entries", entry.id);
-        currentBatch.update(entryRef, { status: 'lost', potential_payout: 0 });
-        opsCount++;
-      }
-
-      if (opsCount > 0) batches.push(currentBatch);
-      for (const batch of batches) await batch.commit();
-
-      setStatusMsg(`Resolved! You earned $${creatorCommission.toFixed(2)} commission.`);
+      await api.resolvePrediction(selectedPred.id, winningOption);
+      setStatusMsg(`Event resolved! You earned your creator commission.`);
       setSelectedPred(null);
+
+      // Refresh events after resolution
+      const events = await api.getPredictions({ creatorId: currentUser!.uid });
+      events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      setMyEvents(events);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setStatusMsg(`Failed: ${errorMessage}`);

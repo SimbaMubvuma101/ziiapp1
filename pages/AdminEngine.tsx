@@ -9,11 +9,12 @@ import { useNavigate } from 'react-router-dom';
 import { Feed } from './Feed';
 import { calculateAMMOdds } from '../utils/amm';
 import { SUPPORTED_COUNTRIES } from '../constants';
+import { api } from '../utils/api';
 
 export const AdminEngine: React.FC = () => {
   const { isAdmin, logout, currentUser, userProfile, platformSettings } = useAuth();
   const navigate = useNavigate();
-  
+
   // Tabs: 'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'creators' | 'settings'
   const [activeTab, setActiveTab] = useState<'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'creators' | 'settings'>('deploy');
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export const AdminEngine: React.FC = () => {
 
   // Manage Feed Sub-Tabs
   const [manageSubTab, setManageSubTab] = useState<'open' | 'closed' | 'resolved'>('open');
-  
+
   // Analytics Sub-Tabs
   const [analyticsSubTab, setAnalyticsSubTab] = useState<'financials' | 'activity' | 'growth'>('financials');
 
@@ -62,7 +63,7 @@ export const AdminEngine: React.FC = () => {
       revenueWeek: number;
       revenueMonth: number;
       avgMonthlyRevenue: number;
-      
+
       // Volume / Activity
       totalVolume: number;
       entryVolume: number;
@@ -84,7 +85,7 @@ export const AdminEngine: React.FC = () => {
   const [newCreatorCountry, setNewCreatorCountry] = useState('ZW');
 
   // --- DEPLOYMENT STATE ---
-  
+
   // Helper to format date for datetime-local input (YYYY-MM-DDThh:mm)
   const getFutureDate = (hours: number) => {
     const d = new Date();
@@ -99,7 +100,7 @@ export const AdminEngine: React.FC = () => {
   const [targetCountry, setTargetCountry] = useState('ZW');
   const [closingTime, setClosingTime] = useState(getFutureDate(24));
   const [resolutionSource, setResolutionSource] = useState('');
-  
+
   // High Roller Config
   const [deployMode, setDeployMode] = useState<'normal' | 'high_roller'>('normal');
   const [multiplier, setMultiplier] = useState<string>('5');
@@ -154,24 +155,21 @@ export const AdminEngine: React.FC = () => {
       }
   }, [activeTab]);
 
-  const fetchCreatorInvites = () => {
-      const q = query(collection(db, "creator_invites"), orderBy("created_at", "desc"));
-      const unsub = onSnapshot(q, (snapshot) => {
-          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as CreatorInvite[];
-          setCreatorInvites(data);
-      });
-      return unsub;
+  const fetchCreatorInvites = async () => {
+      try {
+          const invites = await api.getCreatorInvites();
+          setCreatorInvites(invites);
+      } catch (err) {
+          console.error('Failed to fetch creator invites:', err);
+      }
   };
 
   // --- DETAIL VIEW DATA FETCHING ---
   useEffect(() => {
       // 1. Basic Guards
-      if (!selectedPred) return;
-
-      // 2. SECURITY GUARD: Strictly wait for DB confirmation of admin status.
-      if (!userProfile?.isAdmin) {
-          setDetailsLoading(true);
-          if (currentUser?.email === 'admin@zii.app') {
+      if (!selectedPred || !userProfile?.isAdmin) {
+          if (selectedPred && !userProfile?.isAdmin) {
+              setDetailsLoading(true);
               setStatusMsg("Syncing Admin Permissions...");
           }
           return;
@@ -180,39 +178,30 @@ export const AdminEngine: React.FC = () => {
       setDetailsLoading(true);
       setStatusMsg('');
 
-      // 3. Query: Get all entries for this prediction
-      const q = query(collection(db, "entries"), where("prediction_id", "==", selectedPred.id));
-      
-      const unsub = onSnapshot(q, 
-        (snapshot) => {
-          const entries = snapshot.docs.map(d => {
-              const data = d.data();
-              let createdAtStr = new Date().toISOString();
-              if (data.created_at) {
-                  if (data.created_at.toDate) {
-                      createdAtStr = data.created_at.toDate().toISOString();
-                  } else if (typeof data.created_at === 'string') {
-                      createdAtStr = data.created_at.toDate().toISOString();
-                  }
+      const loadEntries = async () => {
+          try {
+              // Fetch entries from the backend API
+              const entries = await api.getEntries();
+              const predEntries = entries.filter(e => e.prediction_id === selectedPred.id);
+              setPredEntries(predEntries);
+              setDetailsLoading(false);
+              setStatusMsg('');
+          } catch (error: any) {
+              console.error("Admin Entries Query Error:", error);
+              if (error.code === 'permission-denied') {
+                 setStatusMsg("Permission Denied: Database Rules Blocked Access.");
+              } else {
+                 setStatusMsg(`Data Error: ${error.message}`);
               }
-              return { id: d.id, ...data, created_at: createdAtStr } as UserEntry;
-          });
-          setPredEntries(entries);
-          setDetailsLoading(false);
-          setStatusMsg(''); 
-        }, 
-        (error) => {
-          console.error("Admin Entries Query Error:", error);
-          if (error.code === 'permission-denied') {
-             setStatusMsg("Permission Denied: Database Rules Blocked Access.");
-          } else {
-             setStatusMsg(`Data Error: ${error.message}`);
+              setDetailsLoading(false);
           }
-          setDetailsLoading(false);
-        }
-      );
+      };
 
-      return () => unsub();
+      loadEntries();
+      // Poll every 5 seconds for new entries
+      const interval = setInterval(loadEntries, 5000);
+      // Cleanup interval on component unmount or when selectedPred changes
+      return () => clearInterval(interval);
   }, [selectedPred, userProfile]);
 
   // Reset form when type changes
@@ -229,114 +218,25 @@ export const AdminEngine: React.FC = () => {
 
   const fetchStats = async () => {
      try {
-         const predSnap = await getDocs(collection(db, "predictions"));
-         setStats(prev => ({ ...prev, predictions: predSnap.size }));
-         const usersSnap = await getDocs(collection(db, "users"));
-         setStats(prev => ({ ...prev, users: usersSnap.size }));
+         const statsData = await api.getAdminStats();
+         setStats(statsData);
      } catch (e) { console.warn(e); }
   };
 
-  const fetchAffiliates = () => {
-      const q = query(collection(db, "affiliates"), orderBy("created_at", "desc"));
-      const unsub = onSnapshot(q, (snapshot) => {
-          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Affiliate[];
+  const fetchAffiliates = async () => {
+      try {
+          const data = await api.getAffiliates();
           setAffiliates(data);
-      });
-      return unsub; // Clean up handled by effect if we stored the unsub
+      } catch (err) {
+          console.error('Failed to fetch affiliates:', err);
+      }
   };
 
   const fetchAnalytics = async () => {
       setLoading(true);
       try {
-          // Fetch relevant transactions for revenue calculation
-          // Revenue Sources:
-          // 1. 'entry' -> 5% Commission
-          // 2. 'cashout' -> 10% Fee
-          const q = query(collection(db, "transactions"), where("type", "in", ["entry", "cashout"]));
-          const snapshot = await getDocs(q);
-          
-          const now = new Date();
-          const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0,0,0,0);
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          
-          // Revenue Metrics
-          let totalRevenue = 0;
-          let entryRevenue = 0;
-          let cashoutRevenue = 0;
-          let revenueToday = 0;
-          let revenueWeek = 0;
-          let revenueMonth = 0;
-          
-          // Volume Metrics
-          let totalVolume = 0;
-          let entryVolume = 0;
-          let cashoutVolume = 0;
-          let volumeToday = 0;
-          let volumeWeek = 0;
-          let volumeMonth = 0;
-
-          let firstTxDate = now.getTime();
-
-          snapshot.docs.forEach(doc => {
-              const data = doc.data();
-              const type = data.type;
-              const amount = Math.abs(data.amount || 0);
-              
-              const txDate = data.created_at?.toDate ? data.created_at.toDate() : new Date(data.created_at);
-              if (txDate.getTime() < firstTxDate) firstTxDate = txDate.getTime();
-
-              let fee = 0;
-              
-              if (type === 'entry') {
-                  fee = amount * 0.05; // 5% Commission on Entry Volume
-                  entryRevenue += fee;
-                  entryVolume += amount;
-              } else if (type === 'cashout') {
-                  fee = amount * 0.10; // 10% Fee on Withdrawals
-                  cashoutRevenue += fee;
-                  cashoutVolume += amount;
-              }
-
-              totalRevenue += fee;
-              totalVolume += amount;
-
-              if (txDate >= startOfDay) {
-                  revenueToday += fee;
-                  volumeToday += amount;
-              }
-              if (txDate >= startOfWeek) {
-                  revenueWeek += fee;
-                  volumeWeek += amount;
-              }
-              if (txDate >= startOfMonth) {
-                  revenueMonth += fee;
-                  volumeMonth += amount;
-              }
-          });
-
-          // Calculate Monthly Average
-          const monthsRunning = Math.max(1, (now.getTime() - firstTxDate) / (1000 * 60 * 60 * 24 * 30.44));
-          const avgMonthlyRevenue = totalRevenue / monthsRunning;
-
-          setAnalyticsData({
-              totalRevenue,
-              entryFees: entryRevenue,
-              cashoutFees: cashoutRevenue,
-              revenueToday,
-              revenueWeek,
-              revenueMonth,
-              avgMonthlyRevenue,
-              
-              totalVolume,
-              entryVolume,
-              cashoutVolume,
-              volumeToday,
-              volumeWeek,
-              volumeMonth,
-              txCount: snapshot.size
-          });
-
+          const data = await api.getAnalytics();
+          setAnalyticsData(data);
       } catch (err) {
           console.error("Analytics Error", err);
       } finally {
@@ -358,23 +258,15 @@ export const AdminEngine: React.FC = () => {
       e.preventDefault();
       setLoading(true);
       try {
-          // Check if code exists
-          const q = query(collection(db, "affiliates"), where("code", "==", newPartnerCode.trim().toUpperCase()));
-          const snap = await getDocs(q);
-          if (!snap.empty) throw new Error("Partner Code already exists.");
-
-          await addDoc(collection(db, "affiliates"), {
+          await api.createAffiliate({
               name: newPartnerName,
-              code: newPartnerCode.trim().toUpperCase(),
-              total_volume: 0,
-              commission_owed: 0,
-              active_users_count: 0,
-              created_at: serverTimestamp()
+              code: newPartnerCode.trim().toUpperCase()
           });
 
           setNewPartnerName('');
           setNewPartnerCode('');
           setStatusMsg("Partner Created Successfully");
+          await fetchAffiliates(); // Refresh list
       } catch (e: any) {
           setStatusMsg(e.message);
       } finally {
@@ -386,24 +278,19 @@ export const AdminEngine: React.FC = () => {
       e.preventDefault();
       setLoading(true);
       try {
-          const code = `CREATOR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-          
-          await addDoc(collection(db, "creator_invites"), {
-              code,
+          const invite = await api.createCreatorInvite({
               name: newCreatorName,
-              country: newCreatorCountry,
-              status: 'active',
-              created_at: serverTimestamp(),
-              created_by: currentUser?.uid
+              country: newCreatorCountry
           });
 
           setStatusMsg("Creator Invite Generated!");
-          
-          // Copy link immediately
+
+          // Copy link to clipboard
           const baseUrl = window.location.href.split('#')[0];
-          const link = `${baseUrl}#/creator/invite?code=${code}`;
+          const link = `${baseUrl}#/creator/invite?code=${invite.code}`;
           navigator.clipboard.writeText(link);
           setNewCreatorName('');
+          await fetchCreatorInvites(); // Refresh list
       } catch (e: any) {
           setStatusMsg(e.message);
       } finally {
@@ -413,11 +300,9 @@ export const AdminEngine: React.FC = () => {
 
   const revokeCreatorInvite = async (inviteId: string) => {
       try {
-          const inviteRef = doc(db, "creator_invites", inviteId);
-          await runTransaction(db, async (transaction) => {
-              transaction.update(inviteRef, { status: 'revoked' });
-          });
+          await api.revokeCreatorInvite(inviteId);
           setStatusMsg("Invite Revoked");
+          await fetchCreatorInvites(); // Refresh list
       } catch (e: any) {
           setStatusMsg(e.message);
       }
@@ -433,7 +318,7 @@ export const AdminEngine: React.FC = () => {
   const copyPartnerLink = (code: string) => {
       const baseUrl = window.location.href.split('#')[0];
       const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-      
+
       const link = `${cleanBase}/#/?ref=${code}`;
       navigator.clipboard.writeText(link);
       setStatusMsg(`Copied: ${link}`);
@@ -447,16 +332,15 @@ export const AdminEngine: React.FC = () => {
     try {
         const closesAt = new Date(closingTime);
         const appliedMultiplier = deployMode === 'high_roller' ? parseFloat(multiplier) : 1;
-        
+
         let payload: any = {
-            question, 
-            category, 
+            question,
+            category,
             country: targetCountry,
-            type: deployType, 
-            status: PredictionStatus.OPEN, 
-            pool_size: 0, 
-            closes_at: closesAt, 
-            created_at: serverTimestamp(),
+            type: deployType,
+            status: PredictionStatus.OPEN,
+            pool_size: 0,
+            closes_at: closesAt,
             liquidity_pool: {},
             mode: deployMode,
             multiplier: appliedMultiplier,
@@ -464,9 +348,9 @@ export const AdminEngine: React.FC = () => {
         };
 
         if (isOptionType(deployType)) {
-            const rawOptions = options.map((o, i) => ({ 
-                id: `opt_${Date.now()}_${i}`, 
-                label: o.label, 
+            const rawOptions = options.map((o, i) => ({
+                id: `opt_${Date.now()}_${i}`,
+                label: o.label,
                 price: 0
             }));
             const SEED_AMOUNT = 500;
@@ -477,19 +361,19 @@ export const AdminEngine: React.FC = () => {
             payload.options = updatedOptions;
             payload.liquidity_pool = liquidityMap;
         } else {
-            payload.payout = Number(inputConfig.payout); 
-            payload.options = []; 
+            payload.payout = Number(inputConfig.payout);
+            payload.options = [];
         }
 
-        await addDoc(collection(db, "predictions"), payload);
+        await api.createPrediction(payload);
         setStatusMsg('Prediction Deployed Successfully');
         setQuestion('');
         setResolutionSource('');
         fetchStats();
-    } catch (err: any) { 
-        setStatusMsg(`Deployment Failed: ${err.message}`); 
-    } finally { 
-        setLoading(false); 
+    } catch (err: any) {
+        setStatusMsg(`Deployment Failed: ${err.message}`);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -498,28 +382,19 @@ export const AdminEngine: React.FC = () => {
       e.preventDefault();
       setLoading(true);
       setStatusMsg('');
-      
+
       try {
           const amount = parseInt(mintAmount);
           if (!amount || isNaN(amount) || amount <= 0) throw new Error("Invalid Amount");
 
-          const p1 = Math.floor(10000 + Math.random() * 90000);
-          const p2 = Math.floor(10000 + Math.random() * 90000);
-          const p3 = Math.floor(10000 + Math.random() * 90000);
-          const code = `${p1}-${p2}-${p3}`;
-
-          await addDoc(collection(db, "vouchers"), {
-             code: code, amount: amount, status: 'active',
-             created_by: currentUser?.uid, created_at: serverTimestamp()
-          });
-
-          setGeneratedVoucher({ code, amount: mintAmount });
+          const voucher = await api.createVoucher(amount);
+          setGeneratedVoucher({ code: voucher.code, amount: mintAmount });
           setStatusMsg(`SUCCESS: Voucher Created.`);
           setMintAmount('');
-      } catch (err: any) { 
-          setStatusMsg(`Generation Failed: ${err.message}`); 
-      } finally { 
-          setLoading(false); 
+      } catch (err: any) {
+          setStatusMsg(`Generation Failed: ${err.message}`);
+      } finally {
+          setLoading(false);
       }
   };
 
@@ -542,8 +417,7 @@ export const AdminEngine: React.FC = () => {
       setLoading(true);
       setStatusMsg('');
       try {
-          const settingsRef = doc(db, 'system', 'platform');
-          await setDoc(settingsRef, settingsForm, { merge: true });
+          await api.updateSettings(settingsForm);
           setStatusMsg("Platform settings updated successfully.");
       } catch (e: any) {
           setStatusMsg(`Failed to save settings: ${e.message}`);
@@ -582,47 +456,8 @@ export const AdminEngine: React.FC = () => {
       if (!selectedPred || !winningOption) return;
       setLoading(true);
       try {
-          const totalPool = predEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-          const commission = totalPool * 0.05;
-          const distributablePool = totalPool - commission;
-          const winners = predEntries.filter(e => e.selected_option_id === winningOption);
-          const losers = predEntries.filter(e => e.selected_option_id !== winningOption);
-          const winningVolume = winners.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-          const payoutRatio = winningVolume > 0 ? (distributablePool / winningVolume) : 0;
-
-          const BATCH_SIZE_LIMIT = 450; 
-          let opsCount = 0;
-          let batches = [];
-          let currentBatch = writeBatch(db);
-
-          const predRef = doc(db, "predictions", selectedPred.id);
-          currentBatch.update(predRef, { status: PredictionStatus.RESOLVED, winning_option_id: winningOption });
-          opsCount++;
-
-          for (const entry of winners) {
-              if (opsCount >= BATCH_SIZE_LIMIT) { batches.push(currentBatch); currentBatch = writeBatch(db); opsCount = 0; }
-              const entryRef = doc(db, "entries", entry.id);
-              const userRef = doc(db, "users", entry.userId);
-              const txRef = doc(collection(db, "transactions")); 
-              const actualPayout = (entry.amount || 0) * payoutRatio;
-
-              currentBatch.update(entryRef, { status: 'won', potential_payout: actualPayout });
-              currentBatch.update(userRef, { winnings_balance: increment(actualPayout) });
-              currentBatch.set(txRef, { userId: entry.userId, type: 'winnings', amount: actualPayout, description: `Won: ${selectedPred.question.substring(0, 15)}...`, created_at: serverTimestamp() });
-              opsCount += 3;
-          }
-
-          for (const entry of losers) {
-              if (opsCount >= BATCH_SIZE_LIMIT) { batches.push(currentBatch); currentBatch = writeBatch(db); opsCount = 0; }
-              const entryRef = doc(db, "entries", entry.id);
-              currentBatch.update(entryRef, { status: 'lost', potential_payout: 0 });
-              opsCount++;
-          }
-
-          if (opsCount > 0) batches.push(currentBatch);
-          for (const batch of batches) await batch.commit();
-
-          setStatusMsg(`Resolved! Paid out ${winners.length} winners from a pool of $${totalPool.toFixed(2)}.`);
+          await api.resolvePrediction(selectedPred.id, winningOption);
+          setStatusMsg(`Event resolved successfully!`);
           setSelectedPred(null);
       } catch (err: any) {
           setStatusMsg(`Resolution Failed: ${err.message}`);
@@ -723,7 +558,7 @@ export const AdminEngine: React.FC = () => {
                                   })}
                               </div>
                           </div>
-                          
+
                           {winningOption && (
                               <div className="mt-6 pt-4 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
                                   <div className="flex justify-between items-center mb-2">
@@ -783,7 +618,7 @@ export const AdminEngine: React.FC = () => {
                 </div>
                 <button onClick={() => logout().then(() => navigate('/login'))} className="bg-white/5 hover:bg-white/10 p-2.5 rounded-full text-white/50 border border-white/5 transition-colors"><LogOut size={18} /></button>
             </div>
-            
+
             {activeTab === 'settings' ? (
                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
                     <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
@@ -795,7 +630,7 @@ export const AdminEngine: React.FC = () => {
                     {/* Status Message */}
                     {statusMsg && (
                         <div className={`p-4 rounded-2xl flex items-start gap-3 text-xs font-bold animate-pulse border ${statusMsg.includes('Failed') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zii-accent/10 border-zii-accent/20 text-zii-accent'}`}>
-                            {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />} 
+                            {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />}
                             <span className="leading-relaxed">{statusMsg}</span>
                         </div>
                     )}
@@ -803,7 +638,7 @@ export const AdminEngine: React.FC = () => {
                     {/* General */}
                     <div className="bg-zii-card border border-white/5 rounded-3xl p-5 space-y-4">
                         <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest pl-1">General Status</h3>
-                        
+
                         <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
                             <div className="flex items-center gap-3">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${settingsForm.maintenance_mode ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
@@ -814,7 +649,7 @@ export const AdminEngine: React.FC = () => {
                                     <p className="text-[10px] text-white/40">{settingsForm.maintenance_mode ? 'App is Locked' : 'App is Active'}</p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setSettingsForm({...settingsForm, maintenance_mode: !settingsForm.maintenance_mode})}
                                 className={`w-12 h-6 rounded-full p-1 transition-colors ${settingsForm.maintenance_mode ? 'bg-red-500' : 'bg-white/10'}`}
                             >
@@ -826,17 +661,17 @@ export const AdminEngine: React.FC = () => {
                     {/* Economy */}
                     <div className="bg-zii-card border border-white/5 rounded-3xl p-5 space-y-4">
                         <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest pl-1">Economy Config</h3>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <label className="text-[10px] text-white/40 font-bold uppercase pl-1">Welcome Bonus</label>
                                 <div className="relative">
                                     <Coins size={14} className="absolute left-3 top-3 text-white/30" />
-                                    <input 
-                                        type="number" 
-                                        value={settingsForm.welcome_bonus} 
+                                    <input
+                                        type="number"
+                                        value={settingsForm.welcome_bonus}
                                         onChange={(e) => setSettingsForm({...settingsForm, welcome_bonus: Number(e.target.value)})}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-2 text-sm text-white font-mono focus:outline-none focus:border-zii-accent/50" 
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-2 text-sm text-white font-mono focus:outline-none focus:border-zii-accent/50"
                                     />
                                 </div>
                             </div>
@@ -844,11 +679,11 @@ export const AdminEngine: React.FC = () => {
                                 <label className="text-[10px] text-white/40 font-bold uppercase pl-1">Referral Bonus</label>
                                 <div className="relative">
                                     <Coins size={14} className="absolute left-3 top-3 text-white/30" />
-                                    <input 
-                                        type="number" 
-                                        value={settingsForm.referral_bonus} 
+                                    <input
+                                        type="number"
+                                        value={settingsForm.referral_bonus}
                                         onChange={(e) => setSettingsForm({...settingsForm, referral_bonus: Number(e.target.value)})}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-2 text-sm text-white font-mono focus:outline-none focus:border-zii-accent/50" 
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-2 text-sm text-white font-mono focus:outline-none focus:border-zii-accent/50"
                                     />
                                 </div>
                             </div>
@@ -856,11 +691,11 @@ export const AdminEngine: React.FC = () => {
 
                         <div className="space-y-1">
                             <label className="text-[10px] text-white/40 font-bold uppercase pl-1">Min Cashout ($)</label>
-                            <input 
-                                type="number" 
-                                value={settingsForm.min_cashout} 
+                            <input
+                                type="number"
+                                value={settingsForm.min_cashout}
                                 onChange={(e) => setSettingsForm({...settingsForm, min_cashout: Number(e.target.value)})}
-                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm text-white font-mono focus:outline-none focus:border-zii-accent/50" 
+                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm text-white font-mono focus:outline-none focus:border-zii-accent/50"
                             />
                         </div>
                     </div>
@@ -871,7 +706,7 @@ export const AdminEngine: React.FC = () => {
                             <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest pl-1">Global Banner</h3>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-white/40 uppercase">{settingsForm.banner_active ? 'ON' : 'OFF'}</span>
-                                <button 
+                                <button
                                     onClick={() => setSettingsForm({...settingsForm, banner_active: !settingsForm.banner_active})}
                                     className={`w-8 h-4 rounded-full p-0.5 transition-colors ${settingsForm.banner_active ? 'bg-zii-accent' : 'bg-white/10'}`}
                                 >
@@ -879,21 +714,21 @@ export const AdminEngine: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div className="relative">
                             <Megaphone size={16} className="absolute left-3 top-3 text-white/30" />
-                            <textarea 
+                            <textarea
                                 rows={2}
-                                value={settingsForm.banner_message} 
+                                value={settingsForm.banner_message}
                                 onChange={(e) => setSettingsForm({...settingsForm, banner_message: e.target.value})}
                                 placeholder="Enter announcement text..."
-                                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-zii-accent/50 resize-none" 
+                                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-zii-accent/50 resize-none"
                             />
                         </div>
                     </div>
 
-                    <button 
-                        onClick={handleSaveSettings} 
+                    <button
+                        onClick={handleSaveSettings}
                         disabled={loading}
                         className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl shadow-lg shadow-zii-accent/20 hover:bg-white transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                     >
@@ -902,7 +737,7 @@ export const AdminEngine: React.FC = () => {
                 </div>
             ) : activeTab === 'analytics' ? (
                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
-                     
+
                      {/* Analytics Sub-Tabs */}
                      <div className="flex p-1 bg-white/5 rounded-xl mb-6 border border-white/5">
                         <button
@@ -1022,7 +857,7 @@ export const AdminEngine: React.FC = () => {
 
                                     <div className="bg-white/5 p-6 rounded-[2rem] border border-white/5 mt-4">
                                         <h3 className="text-sm font-bold text-white/60 mb-4 flex items-center gap-2"><Gauge size={16} className="text-zii-accent" /> System Health</h3>
-                                        
+
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs text-white/50">Avg Monthly Revenue</span>
@@ -1059,14 +894,14 @@ export const AdminEngine: React.FC = () => {
 
                     {statusMsg && (
                         <div className={`p-4 rounded-2xl flex items-start gap-3 text-xs font-bold animate-pulse border ${statusMsg.includes('Failed') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zii-accent/10 border-zii-accent/20 text-zii-accent'}`}>
-                            {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />} 
+                            {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />}
                             <span className="leading-relaxed">{statusMsg}</span>
                         </div>
                     )}
 
                     <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
                         <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><UserPlus size={20} className="text-zii-accent" /> Create Invite Link</h2>
-                        
+
                         <form onSubmit={handleCreateCreatorInvite} className="space-y-3">
                             <div>
                                 <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Creator Name</label>
@@ -1112,7 +947,7 @@ export const AdminEngine: React.FC = () => {
                 </div>
             ) : activeTab === 'partners' ? (
                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
-                    
+
                     {/* Partner Sub-Tabs */}
                     <div className="flex p-1 bg-white/5 rounded-xl mb-6 border border-white/5">
                         <button
@@ -1189,7 +1024,7 @@ export const AdminEngine: React.FC = () => {
                         <div className="animate-in fade-in slide-in-from-bottom-2 space-y-6">
                             <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
                                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Handshake size={20} className="text-zii-accent" /> Add Affiliate Partner</h2>
-                                
+
                                 <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl mb-6 flex gap-3">
                                    <Info size={18} className="text-blue-400 shrink-0 mt-0.5" />
                                    <p className="text-xs text-blue-200/80 leading-relaxed">
@@ -1284,7 +1119,7 @@ export const AdminEngine: React.FC = () => {
                 <div className="bg-zii-card border border-white/5 rounded-3xl p-6 shadow-xl">
                     {statusMsg && (
                         <div className={`mb-6 p-4 rounded-2xl flex items-start gap-3 text-xs font-bold animate-pulse border ${statusMsg.includes('Failed') || statusMsg.includes('Denied') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zii-accent/10 border-zii-accent/20 text-zii-accent'}`}>
-                            {statusMsg.includes('Failed') || statusMsg.includes('Denied') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />} 
+                            {statusMsg.includes('Failed') || statusMsg.includes('Denied') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />}
                             <span className="leading-relaxed">{statusMsg}</span>
                         </div>
                     )}
@@ -1331,7 +1166,7 @@ export const AdminEngine: React.FC = () => {
                                     <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Question Text</label>
                                     <textarea required rows={2} value={question} onChange={e => setQuestion(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all resize-none text-sm font-medium" placeholder="e.g. Will it rain tomorrow?" />
                                 </div>
-                                
+
                                 {/* Country Selector for Deploy */}
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Target Country</label>
@@ -1361,15 +1196,15 @@ export const AdminEngine: React.FC = () => {
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Closing Time</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            value={closingTime} 
-                                            onChange={e => setClosingTime(e.target.value)} 
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50 font-medium [color-scheme:dark]" 
+                                        <input
+                                            type="datetime-local"
+                                            value={closingTime}
+                                            onChange={e => setClosingTime(e.target.value)}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50 font-medium [color-scheme:dark]"
                                         />
                                     </div>
                                 </div>
-                                
+
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Resolution Source (Optional)</label>
                                     <input type="text" value={resolutionSource} onChange={e => setResolutionSource(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all text-sm font-medium" placeholder="e.g. Official Twitter Account" />
@@ -1385,7 +1220,7 @@ export const AdminEngine: React.FC = () => {
                                         <button type="button" onClick={() => setDeployMode('high_roller')} className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border flex items-center justify-center gap-2 ${deployMode === 'high_roller' ? 'bg-zii-accent text-black border-zii-accent' : 'bg-black/40 text-white/50 border-white/5 hover:bg-black/60'}`}><Gauge size={14} /> High Roller</button>
                                     </div>
                                 </div>
-                                
+
                                 {deployMode === 'high_roller' && (
                                     <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
                                         <label className="text-[10px] text-zii-accent/80 uppercase font-bold tracking-widest pl-1">Multiplier (x)</label>
@@ -1469,7 +1304,7 @@ export const AdminEngine: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-3">
-                                    <button 
+                                    <button
                                         onClick={() => applyTemplate('zesa')}
                                         className="bg-zii-card hover:bg-white/5 border border-white/5 rounded-2xl p-4 text-left transition-all active:scale-[0.98] group"
                                     >
@@ -1480,7 +1315,7 @@ export const AdminEngine: React.FC = () => {
                                         <p className="text-xs text-white/40 leading-snug">Standard Yes/No. 6 hour duration.</p>
                                     </button>
 
-                                    <button 
+                                    <button
                                         onClick={() => applyTemplate('soccer')}
                                         className="bg-zii-card hover:bg-white/5 border border-white/5 rounded-2xl p-4 text-left transition-all active:scale-[0.98] group"
                                     >
@@ -1491,7 +1326,7 @@ export const AdminEngine: React.FC = () => {
                                         <p className="text-xs text-white/40 leading-snug">Multiple Choice (Home/Away/Draw). 48hr duration.</p>
                                     </button>
 
-                                    <button 
+                                    <button
                                         onClick={() => applyTemplate('rate')}
                                         className="bg-zii-card hover:bg-white/5 border border-white/5 rounded-2xl p-4 text-left transition-all active:scale-[0.98] group"
                                     >
@@ -1517,7 +1352,7 @@ export const AdminEngine: React.FC = () => {
             <div className="p-4 pb-0 pt-6">
                 <h2 className="text-xl font-black text-white mb-1 tracking-tight">Manage Events</h2>
                 <p className="text-xs text-white/50 mb-4 font-medium">Click any active event to view stats & resolve outcomes.</p>
-                
+
                  {/* Sub Tabs */}
                  <div className="flex p-1 bg-white/5 rounded-xl mb-4 border border-white/5">
                     <button
