@@ -401,8 +401,7 @@ export const AdminEngine: React.FC = () => {
           
           // Copy link immediately
           const baseUrl = window.location.href.split('#')[0];
-          const creatorSlug = newCreatorName.toLowerCase().replace(/\s+/g, '');
-          const link = `${baseUrl}#/${creatorSlug}`;
+          const link = `${baseUrl}#/creator/invite?code=${code}`;
           navigator.clipboard.writeText(link);
           setNewCreatorName('');
       } catch (e: any) {
@@ -425,12 +424,8 @@ export const AdminEngine: React.FC = () => {
   };
 
   const copyCreatorInviteLink = (code: string) => {
-      const invite = creatorInvites.find(i => i.code === code);
-      if (!invite) return;
-      
       const baseUrl = window.location.href.split('#')[0];
-      const creatorSlug = invite.name.toLowerCase().replace(/\s+/g, '');
-      const link = `${baseUrl}#/${creatorSlug}`;
+      const link = `${baseUrl}#/creator/invite?code=${code}`;
       navigator.clipboard.writeText(link);
       setStatusMsg(`Invite link copied!`);
   };
