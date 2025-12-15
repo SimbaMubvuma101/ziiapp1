@@ -4,8 +4,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import { CreditCard, Loader as LoaderIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-// Replace with your Stripe publishable key
-const stripePromise = loadStripe('pk_test_YOUR_PUBLISHABLE_KEY');
+// Load Stripe publishable key from environment
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
 
 interface StripeCheckoutProps {
   coins: number;
