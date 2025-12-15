@@ -48,7 +48,15 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
   const urlParams = getUrlParams();
   const [activeTab, setActiveTab] = useState('All');
-  const [feedSection, setFeedSection] = useState<'main' | 'creator'>(urlParams.tab === 'creator' ? 'creator' : 'main');
+  const [feedSection, setFeedSection] = useState<'main' | 'creator'>('main');
+
+  // Set initial tab from URL params
+  useEffect(() => {
+    const params = getUrlParams();
+    if (params.tab === 'creator') {
+      setFeedSection('creator');
+    }
+  }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -396,19 +404,26 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     });
   } else if (!adminMode) {
     const urlParams = getUrlParams();
-    // If specific event ID provided, show only that event
-    if (urlParams.eventId) {
-      filteredPredictions = predictions.filter(p => p.id === urlParams.eventId);
-    } else {
-      // Filter by section: creator events vs main events
-      filteredPredictions = predictions.filter(p => {
-        const isCreatorEvent = !!p.created_by_creator;
-        return feedSection === 'creator' ? isCreatorEvent : !isCreatorEvent;
-      });
+    
+    // Filter by section: creator events vs main events
+    filteredPredictions = predictions.filter(p => {
+      const isCreatorEvent = !!p.created_by_creator;
+      return feedSection === 'creator' ? isCreatorEvent : !isCreatorEvent;
+    });
 
-      // Then filter by category if not 'All'
-      if (activeTab !== 'All') {
-        filteredPredictions = filteredPredictions.filter(p => p.category === activeTab);
+    // Then filter by category if not 'All'
+    if (activeTab !== 'All') {
+      filteredPredictions = filteredPredictions.filter(p => p.category === activeTab);
+    }
+
+    // If specific event ID provided, prioritize it at the top
+    if (urlParams.eventId) {
+      const targetEvent = filteredPredictions.find(p => p.id === urlParams.eventId);
+      if (targetEvent) {
+        filteredPredictions = [
+          targetEvent,
+          ...filteredPredictions.filter(p => p.id !== urlParams.eventId)
+        ];
       }
     }
   }
@@ -465,7 +480,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       )}
 
       {/* Feed Section Toggle (Hide in Admin Mode) */}
-      {!adminMode && !getUrlParams().eventId && (
+      {!adminMode && (
         <div className="mb-6">
           <div className="flex p-1 bg-white/5 rounded-xl border border-white/5">
             <button
@@ -504,8 +519,8 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         </div>
       )}
 
-      {/* Category Tabs (Hide in Admin Mode and when showing specific event) */}
-      {!adminMode && !getUrlParams().eventId && (
+      {/* Category Tabs (Hide in Admin Mode) */}
+      {!adminMode && (
         <div className="mb-8">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 snap-x">
             {tabs.map((cat) => (
