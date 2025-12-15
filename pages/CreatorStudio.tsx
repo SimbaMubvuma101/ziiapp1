@@ -249,7 +249,7 @@ export const CreatorStudio: React.FC = () => {
   }
   
   // Only redirect if we have confirmed the user is NOT a creator
-  if (userProfile && !userProfile.isCreator) {
+  if (userProfile && userProfile.isCreator === false) {
     console.log('CreatorStudio: User is not a creator, redirecting to /earn');
     navigate('/earn');
     return null;
