@@ -70,7 +70,22 @@ export const AdminEngine: React.FC = () => {
       volumeWeek: number;
       volumeMonth: number;
       txCount: number;
-  } | null>(null);
+  } | null>({
+      totalRevenue: 0,
+      entryFees: 0,
+      cashoutFees: 0,
+      revenueToday: 0,
+      revenueWeek: 0,
+      revenueMonth: 0,
+      avgMonthlyRevenue: 0,
+      totalVolume: 0,
+      entryVolume: 0,
+      cashoutVolume: 0,
+      volumeToday: 0,
+      volumeWeek: 0,
+      volumeMonth: 0,
+      txCount: 1,
+  });
 
   // --- PARTNERS / AFFILIATE STATE ---
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
