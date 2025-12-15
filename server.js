@@ -1,4 +1,3 @@
-
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -11,18 +10,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = parseInt(process.env.PORT) || (process.env.REPLIT_DEPLOYMENT ? 5000 : 3001);
+const PORT = parseInt(process.env.PORT) || (process.env.REPL_DEPLOYMENT ? 5000 : 3001);
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 // Initialize database
 initDatabase()
-  .then(() => console.log('Database initialized successfully'))
-  .catch(err => {
+  .then(() => {
+    console.log('Database initialized successfully');
+  })
+  .catch((err) => {
     console.error('Database initialization failed:', err);
-    console.error('Error details:', err.message, err.stack);
   });
+
+// Handle uncaught exceptions and rejections
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Webhook route MUST come before express.json() to get raw body
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
