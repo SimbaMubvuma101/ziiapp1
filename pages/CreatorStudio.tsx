@@ -237,9 +237,10 @@ export const CreatorStudio: React.FC = () => {
 
   const copyEventLink = (eventId: string) => {
     const baseUrl = window.location.href.split('#')[0];
-    const link = `${baseUrl}#/creator/event/${eventId}`;
+    const creatorNameSlug = userProfile?.creator_name || 'creator';
+    const link = `${baseUrl}#/${creatorNameSlug}`;
     navigator.clipboard.writeText(link);
-    setStatusMsg(`Link copied!`);
+    setStatusMsg(`Profile link copied!`);
   };
 
   if (!userProfile?.isCreator) return null;
