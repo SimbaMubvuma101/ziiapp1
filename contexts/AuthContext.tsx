@@ -117,9 +117,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // 3. Ensure basic profile exists for everyone else
+        let isNewUser = false;
         try {
             const docSnap = await getDoc(userRef);
             if (!docSnap.exists()) {
+                isNewUser = true;
                 await setDoc(userRef, {
                     uid: user.uid,
                     name: user.displayName || 'User',
@@ -133,6 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     isAdmin: user.email === 'admin@zii.app',
                     country: userCountry // Save the initially detected/selected country
                 });
+                // Small delay to ensure Firestore write completes
+                await new Promise(resolve => setTimeout(resolve, 500));
             } else {
                 // If user exists, sync local state to DB state
                 const data = docSnap.data();

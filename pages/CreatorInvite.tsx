@@ -207,10 +207,11 @@ export const CreatorInvitePage: React.FC = () => {
 
       setSuccess(true);
       
-      // Redirect to creator studio with full page reload
+      // Wait longer for Firestore to sync, then redirect
       setTimeout(() => {
         window.location.href = window.location.origin + '/#/creator/studio';
-      }, 2000);
+        window.location.reload();
+      }, 3000);
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
