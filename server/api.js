@@ -66,6 +66,11 @@ router.post('/auth/register', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('Registration error:', err);
+    console.error('Error details:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     res.status(500).json({ error: err.message || 'Registration failed' });
   } finally {
     client.release();

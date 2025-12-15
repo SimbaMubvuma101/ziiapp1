@@ -9,6 +9,15 @@ export const pool = new Pool({
 
 // Initialize database schema
 export async function initDatabase() {
+  // Test connection first
+  try {
+    const testResult = await pool.query('SELECT NOW()');
+    console.log('Database connection successful:', testResult.rows[0]);
+  } catch (err) {
+    console.error('Database connection failed:', err.message);
+    throw err;
+  }
+
   const client = await pool.connect();
   try {
     await client.query(`
@@ -16,7 +25,7 @@ export async function initDatabase() {
         uid VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
-        phone_number VARCHAR(50),
+        phone_number VARCHAR(50) DEFAULT '',
         password_hash VARCHAR(255) NOT NULL,
         balance DECIMAL(10, 2) DEFAULT 0,
         winnings_balance DECIMAL(10, 2) DEFAULT 0,
@@ -24,6 +33,7 @@ export async function initDatabase() {
         xp INTEGER DEFAULT 0,
         photo_file_name VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP,
         is_admin BOOLEAN DEFAULT false,
         country VARCHAR(2) DEFAULT 'ZW',
         affiliate_id VARCHAR(255),

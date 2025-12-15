@@ -17,7 +17,12 @@ const PORT = parseInt(process.env.PORT) || (process.env.REPLIT_DEPLOYMENT ? 5000
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 // Initialize database
-initDatabase().catch(err => console.error('Database initialization failed:', err));
+initDatabase()
+  .then(() => console.log('Database initialized successfully'))
+  .catch(err => {
+    console.error('Database initialization failed:', err);
+    console.error('Error details:', err.message, err.stack);
+  });
 
 // Webhook route MUST come before express.json() to get raw body
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
