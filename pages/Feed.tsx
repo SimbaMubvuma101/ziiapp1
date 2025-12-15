@@ -22,12 +22,10 @@ interface FeedProps {
 }
 
 export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick, adminStatusFilter }) => {
-  const { eventId } = useParams<{ eventId?: string }>();
   const { userProfile, currentUser, isAdmin: authIsAdmin, userCountry } = useAuth();
   const effectiveIsAdmin = adminMode || authIsAdmin;
 
   const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [specificEvent, setSpecificEvent] = useState<Prediction | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Track which events the user has already bet on
@@ -39,7 +37,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   const [selectedEntryPrediction, setSelectedEntryPrediction] = useState<Prediction | null>(null); // For detail context (countdown)
 
   const [activeTab, setActiveTab] = useState('All');
-  const [feedSection, setFeedSection] = useState<'main' | 'creator'>(eventId ? 'creator' : 'main');
+  const [feedSection, setFeedSection] = useState<'main' | 'creator'>('main');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -124,28 +122,6 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     fetchEntries();
   }, [userProfile]);
 
-  // 1.5. Fetch Specific Event if eventId is provided
-  useEffect(() => {
-    if (!eventId) {
-      setSpecificEvent(null);
-      return;
-    }
-
-    const fetchSpecificEvent = async () => {
-      try {
-        // Assuming api.getPredictions can fetch a single event by ID
-        const events = await api.getPredictions({ eventId });
-        if (events.length > 0) {
-          setSpecificEvent(events[0]);
-        }
-      } catch (error) {
-        console.error("Error fetching specific event:", error);
-      }
-    };
-
-    fetchSpecificEvent();
-  }, [eventId]);
-
   // 2. Fetch Predictions Real-time (using polling via interval for now)
   useEffect(() => {
     const fetchPredictions = async () => {
@@ -187,11 +163,6 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         } else {
           // User: Strictly Deadline (Soonest Closing First)
           filteredPreds.sort((a: Prediction, b: Prediction) => {
-            // If we have a specific event, prioritize it
-            if (eventId) {
-              if (a.id === eventId) return -1;
-              if (b.id === eventId) return 1;
-            }
             return new Date(a.closes_at).getTime() - new Date(b.closes_at).getTime();
           });
         }
@@ -209,7 +180,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     // Poll for updates every 10 seconds
     const interval = setInterval(fetchPredictions, 10000);
     return () => clearInterval(interval); // Cleanup on unmount
-  }, [adminMode, userCountry, refreshTrigger, eventId]); // Added eventId dependency
+  }, [adminMode, userCountry, refreshTrigger]);
 
   // Pull-to-Refresh Logic
   const handleTouchStart = (e: React.TouchEvent) => {

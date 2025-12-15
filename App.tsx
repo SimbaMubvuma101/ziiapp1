@@ -38,7 +38,6 @@ const App: React.FC = () => {
               <CreatorStudio />
             </ProtectedRoute>
           } />
-          <Route path="/creator/event/:eventId" element={<Feed />} />
           <Route path="/:creatorname" element={<CreatorInvitePage />} />
 
           {/* Public App Routes (Components handle guest state internally) */}
