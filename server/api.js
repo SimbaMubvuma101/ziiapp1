@@ -93,7 +93,7 @@ router.post('/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = generateToken(user);
+    const token = generateToken({ ...user, is_admin: user.email === 'admin@zii.app' });
     const { password_hash, verification_token, ...userData } = user;
     
     res.json({ token, user: userData });
