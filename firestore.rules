@@ -1,18 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // --- HELPER FUNCTIONS ---
-    
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     // Fetch the user's profile document to check permissions
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    
+
     // Admin Check: 
     // 1. CHEAPEST/FASTEST: Checks email in auth token (Vital for bootstrapping root admin)
     // 2. DATABASE CHECK: Checks 'isAdmin' boolean or 'role' string in Firestore User doc
