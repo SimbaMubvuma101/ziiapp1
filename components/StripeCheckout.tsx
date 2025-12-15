@@ -36,7 +36,16 @@ export const StripeCheckout: React.FC<StripeCheckoutProps> = ({ coins, costUsd, 
         }),
       });
 
-      const { sessionId } = await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const data = await response.json() as { sessionId?: string };
+      const sessionId = data.sessionId;
+      
+      if (!sessionId) {
+        throw new Error('No session ID returned');
+      }
       
       // Redirect to Stripe Checkout
       const stripe = await stripePromise;
@@ -47,8 +56,9 @@ export const StripeCheckout: React.FC<StripeCheckoutProps> = ({ coins, costUsd, 
           alert('Payment failed. Please try again.');
         }
       }
-    } catch (error) {
-      console.error('Checkout error:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Checkout error:', errorMessage);
       alert('Unable to process payment. Please try again.');
     } finally {
       setLoading(false);

@@ -138,8 +138,9 @@ export const CreatorStudio: React.FC = () => {
       setQuestion('');
       setResolutionSource('');
       setActiveTab('manage');
-    } catch (err: any) {
-      setStatusMsg(`Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setStatusMsg(`Failed: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -222,8 +223,9 @@ export const CreatorStudio: React.FC = () => {
 
       setStatusMsg(`Resolved! You earned $${creatorCommission.toFixed(2)} commission.`);
       setSelectedPred(null);
-    } catch (err: any) {
-      setStatusMsg(`Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setStatusMsg(`Failed: ${errorMessage}`);
     } finally {
       setLoading(false);
       setConfirmStep(0);
