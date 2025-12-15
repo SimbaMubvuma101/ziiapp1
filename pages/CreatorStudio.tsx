@@ -59,7 +59,7 @@ export const CreatorStudio: React.FC = () => {
         const events = await api.getPredictions({ creatorId: currentUser.uid });
         events.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         setMyEvents(events);
-        
+
         // Calculate total earnings from resolved events
         const earnings = events
           .filter(e => e.status === 'resolved')
@@ -103,7 +103,7 @@ export const CreatorStudio: React.FC = () => {
 
     try {
       const closesAt = new Date(closingTime);
-      
+
       let payload: any = {
         question,
         category,
@@ -126,7 +126,7 @@ export const CreatorStudio: React.FC = () => {
         label: o.label,
         price: 0
       }));
-      
+
       const SEED_AMOUNT = 500;
       const liquidityMap: Record<string, number> = {};
       rawOptions.forEach(opt => { liquidityMap[opt.id] = SEED_AMOUNT; });
@@ -136,7 +136,7 @@ export const CreatorStudio: React.FC = () => {
       payload.liquidity_pool = liquidityMap;
 
       await api.createPrediction(payload);
-      
+
       setStatusMsg('Event Created Successfully!');
       setQuestion('');
       setResolutionSource('');
@@ -180,7 +180,7 @@ export const CreatorStudio: React.FC = () => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}/#/earn?event=${eventId}&tab=creator`;
     navigator.clipboard.writeText(link);
-    setStatusMsg(`Link copied! Share with your audience.`);
+    setStatusMsg(`Link copied! Users will see your event.`);
   };
 
   // CRITICAL: Show loader while profile is loading OR if user is logged in but profile hasn't loaded yet
@@ -193,7 +193,7 @@ export const CreatorStudio: React.FC = () => {
       </div>
     );
   }
-  
+
   // Only redirect if we have confirmed the user is NOT a creator
   if (userProfile && userProfile.isCreator === false) {
     console.log('CreatorStudio: User is not a creator, redirecting to /earn');
@@ -527,7 +527,7 @@ export const CreatorStudio: React.FC = () => {
                       <Share2 size={16} className="text-zii-accent" />
                     </button>
                   </div>
-                  
+
                   {event.status === PredictionStatus.CLOSED && (
                     <button 
                       onClick={() => setSelectedPred(event)}

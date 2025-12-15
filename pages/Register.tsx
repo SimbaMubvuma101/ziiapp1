@@ -67,8 +67,19 @@ export const Register: React.FC = () => {
 
       console.log('Registration successful');
       
-      // Registration successful - redirect to login or home
-      if (email === 'admin@zii.app') {
+      // Check for pending event redirect
+      const pendingEvent = localStorage.getItem('zii_pending_event');
+      const pendingTab = localStorage.getItem('zii_pending_tab');
+      
+      if (pendingEvent) {
+        // Clear the stored redirect
+        localStorage.removeItem('zii_pending_event');
+        localStorage.removeItem('zii_pending_tab');
+        
+        // Redirect to the specific event
+        navigate(`/earn?event=${pendingEvent}&tab=${pendingTab || 'creator'}`);
+      } else if (email === 'admin@zii.app') {
+        // Registration successful - redirect to login or home
         navigate('/admin');
       } else {
         navigate('/earn');
