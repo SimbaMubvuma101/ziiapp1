@@ -53,10 +53,13 @@ export const CreatorStudio: React.FC = () => {
     
     // CRITICAL: Only redirect if profile has fully loaded AND user is definitely not a creator
     // If userProfile is null (still loading), don't redirect - wait for it to load
-    if (userProfile !== null && userProfile !== undefined && !userProfile.isCreator) {
-      console.log('User is not a creator, redirecting to /earn');
-      navigate('/earn');
-      return;
+    if (userProfile !== null && userProfile !== undefined) {
+      if (!userProfile.isCreator) {
+        console.log('User is not a creator, redirecting to /earn');
+        navigate('/earn');
+        return;
+      }
+      console.log('Creator verified:', userProfile.creator_name);
     }
 
     const getFutureDate = (hours: number) => {

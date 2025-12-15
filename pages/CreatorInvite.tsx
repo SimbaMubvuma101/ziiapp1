@@ -207,11 +207,13 @@ export const CreatorInvitePage: React.FC = () => {
 
       setSuccess(true);
       
-      // Force immediate full page reload to creator studio
-      // This ensures AuthContext fully re-initializes with the new creator profile
+      // CRITICAL FIX: Full page reload bypasses auth listener permission issues
+      // window.location.replace forces complete re-initialization
       setTimeout(() => {
-        window.location.replace(window.location.origin + '/#/creator/studio');
-      }, 2500);
+        window.location.replace(`${window.location.origin}/#/creator/studio`);
+        // Force reload to clear all React state and reinitialize auth
+        setTimeout(() => window.location.reload(), 100);
+      }, 2000);
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
