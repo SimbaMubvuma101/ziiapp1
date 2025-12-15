@@ -97,5 +97,15 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || isSignedIn();
     }
+
+    // CREATOR INVITES:
+    // - Read: Public (for invite validation on landing page)
+    // - Create/Delete: Admin only
+    // - Update: Signed in users (to claim invite)
+    match /creator_invites/{inviteId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isSignedIn() || isAdmin();
+    }
   }
 }

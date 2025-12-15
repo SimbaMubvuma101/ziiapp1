@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { collection, addDoc, getDocs, doc, increment, serverTimestamp, query, where, onSnapshot, writeBatch, setDoc, orderBy } from 'firebase/firestore';
 import { Loader } from '../components/Loader';
 import { Zap, Activity, LogOut, CheckCircle, AlertTriangle, Layers, Home, Coins, ArrowLeft, Trophy, DollarSign, Users, Ticket, Copy, RefreshCw, Gauge, BarChart3, TrendingUp, TrendingDown, Calendar, Globe, Handshake, Link as LinkIcon, Info, Wallet, FileText, PieChart, ArrowUpRight, ArrowDownLeft, UserPlus, CreditCard, LayoutTemplate, Lightbulb, Dna, Settings, Save, Megaphone, Lock } from 'lucide-react';
-import { PredictionType, PredictionStatus, Prediction, UserEntry, Affiliate, PlatformSettings } from '../types';
+import { PredictionType, PredictionStatus, Prediction, UserEntry, Affiliate, PlatformSettings, CreatorInvite } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { Feed } from './Feed';
 import { calculateAMMOdds } from '../utils/amm';
@@ -14,8 +14,8 @@ export const AdminEngine: React.FC = () => {
   const { isAdmin, logout, currentUser, userProfile, platformSettings } = useAuth();
   const navigate = useNavigate();
   
-  // Tabs: 'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'settings'
-  const [activeTab, setActiveTab] = useState<'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'settings'>('deploy');
+  // Tabs: 'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'creators' | 'settings'
+  const [activeTab, setActiveTab] = useState<'deploy' | 'mint' | 'feed' | 'analytics' | 'partners' | 'creators' | 'settings'>('deploy');
   const [loading, setLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
@@ -77,6 +77,11 @@ export const AdminEngine: React.FC = () => {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [newPartnerName, setNewPartnerName] = useState('');
   const [newPartnerCode, setNewPartnerCode] = useState('');
+
+  // --- CREATOR INVITES STATE ---
+  const [creatorInvites, setCreatorInvites] = useState<any[]>([]);
+  const [newCreatorName, setNewCreatorName] = useState('');
+  const [newCreatorCountry, setNewCreatorCountry] = useState('ZW');
 
   // --- DEPLOYMENT STATE ---
   
@@ -144,7 +149,19 @@ export const AdminEngine: React.FC = () => {
       if (activeTab === 'partners') {
           fetchAffiliates();
       }
+      if (activeTab === 'creators') {
+          fetchCreatorInvites();
+      }
   }, [activeTab]);
+
+  const fetchCreatorInvites = () => {
+      const q = query(collection(db, "creator_invites"), orderBy("created_at", "desc"));
+      const unsub = onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as CreatorInvite[];
+          setCreatorInvites(data);
+      });
+      return unsub;
+  };
 
   // --- DETAIL VIEW DATA FETCHING ---
   useEffect(() => {
@@ -363,6 +380,54 @@ export const AdminEngine: React.FC = () => {
       } finally {
           setLoading(false);
       }
+  };
+
+  const handleCreateCreatorInvite = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      try {
+          const code = `CREATOR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+          
+          await addDoc(collection(db, "creator_invites"), {
+              code,
+              name: newCreatorName,
+              country: newCreatorCountry,
+              status: 'active',
+              created_at: serverTimestamp(),
+              created_by: currentUser?.uid
+          });
+
+          setNewCreatorName('');
+          setStatusMsg("Creator Invite Generated!");
+          
+          // Copy link immediately
+          const baseUrl = window.location.href.split('#')[0];
+          const link = `${baseUrl}#/creator/invite?code=${code}`;
+          navigator.clipboard.writeText(link);
+      } catch (e: any) {
+          setStatusMsg(e.message);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const revokeCreatorInvite = async (inviteId: string) => {
+      try {
+          const inviteRef = doc(db, "creator_invites", inviteId);
+          await runTransaction(db, async (transaction) => {
+              transaction.update(inviteRef, { status: 'revoked' });
+          });
+          setStatusMsg("Invite Revoked");
+      } catch (e: any) {
+          setStatusMsg(e.message);
+      }
+  };
+
+  const copyCreatorInviteLink = (code: string) => {
+      const baseUrl = window.location.href.split('#')[0];
+      const link = `${baseUrl}#/creator/invite?code=${code}`;
+      navigator.clipboard.writeText(link);
+      setStatusMsg(`Invite link copied!`);
   };
 
   const copyPartnerLink = (code: string) => {
@@ -984,6 +1049,67 @@ export const AdminEngine: React.FC = () => {
                          </div>
                      )}
                 </div>
+            ) : activeTab === 'creators' ? (
+                <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                    <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2"><Star size={20} className="text-zii-accent" /> Creator Invites</h2>
+                        <p className="text-xs text-white/40 mt-1">Generate invite links for content creators.</p>
+                    </div>
+
+                    {statusMsg && (
+                        <div className={`p-4 rounded-2xl flex items-start gap-3 text-xs font-bold animate-pulse border ${statusMsg.includes('Failed') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zii-accent/10 border-zii-accent/20 text-zii-accent'}`}>
+                            {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />} 
+                            <span className="leading-relaxed">{statusMsg}</span>
+                        </div>
+                    )}
+
+                    <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><UserPlus size={20} className="text-zii-accent" /> Create Invite Link</h2>
+                        
+                        <form onSubmit={handleCreateCreatorInvite} className="space-y-3">
+                            <div>
+                                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Creator Name</label>
+                                <input required value={newCreatorName} onChange={e => setNewCreatorName(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50" placeholder="e.g. DJ Maphorisa" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Target Country</label>
+                                <select value={newCreatorCountry} onChange={e => setNewCreatorCountry(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zii-accent/50 appearance-none">
+                                    {SUPPORTED_COUNTRIES.map(c => (
+                                        <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button disabled={loading} className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zii-accent transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                                {loading ? <Loader className="text-black" /> : <><LinkIcon size={16} /> Generate Invite</>}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="space-y-3">
+                        <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest pl-2">Active Invites</h3>
+                        {creatorInvites.filter(i => i.status === 'active').length === 0 ? (
+                            <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No active invites</div>
+                        ) : (
+                            creatorInvites.filter(i => i.status === 'active').map(invite => (
+                                <div key={invite.id} className="bg-zii-card border border-white/5 rounded-2xl p-4 flex justify-between items-center">
+                                    <div>
+                                        <h3 className="font-bold text-white text-sm">{invite.name}</h3>
+                                        <p className="text-xs text-white/50">{invite.country}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => copyCreatorInviteLink(invite.code)} className="text-xs bg-zii-accent/10 hover:bg-zii-accent/20 text-zii-accent px-3 py-1.5 rounded-lg border border-zii-accent/20 transition-colors flex items-center gap-2">
+                                            <Copy size={12} /> Copy
+                                        </button>
+                                        <button onClick={() => revokeCreatorInvite(invite.id)} className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/20 transition-colors">
+                                            Revoke
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
             ) : activeTab === 'partners' ? (
                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
                     
@@ -1437,6 +1563,7 @@ export const AdminEngine: React.FC = () => {
           <button onClick={() => setActiveTab('feed')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeTab === 'feed' ? 'text-zii-accent' : 'text-white/40 hover:text-white/60'}`}><Home size={20} strokeWidth={2.5} /><span className="text-[10px] font-medium tracking-wide uppercase">Manage</span></button>
           <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeTab === 'analytics' ? 'text-zii-accent' : 'text-white/40 hover:text-white/60'}`}><BarChart3 size={20} strokeWidth={2.5} /><span className="text-[10px] font-medium tracking-wide uppercase">Analytics</span></button>
           <button onClick={() => setActiveTab('partners')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeTab === 'partners' ? 'text-zii-accent' : 'text-white/40 hover:text-white/60'}`}><Handshake size={20} strokeWidth={2.5} /><span className="text-[10px] font-medium tracking-wide uppercase">Partners</span></button>
+          <button onClick={() => setActiveTab('creators')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeTab === 'creators' ? 'text-zii-accent' : 'text-white/40 hover:text-white/60'}`}><Star size={20} strokeWidth={2.5} /><span className="text-[10px] font-medium tracking-wide uppercase">Creators</span></button>
           <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeTab === 'settings' ? 'text-zii-accent' : 'text-white/40 hover:text-white/60'}`}><Settings size={20} strokeWidth={2.5} /><span className="text-[10px] font-medium tracking-wide uppercase">Settings</span></button>
         </div>
       </div>

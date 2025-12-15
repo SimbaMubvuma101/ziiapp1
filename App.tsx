@@ -8,6 +8,8 @@ import { Wallet } from './pages/Wallet';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AdminEngine } from './pages/AdminEngine';
+import { CreatorInvitePage } from './pages/CreatorInvite';
+import { CreatorStudio } from './pages/CreatorStudio';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ReferralHandler } from './components/ReferralHandler';
@@ -26,6 +28,14 @@ const App: React.FC = () => {
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminEngine />
+            </ProtectedRoute>
+          } />
+
+          {/* Creator Routes */}
+          <Route path="/creator/invite" element={<CreatorInvitePage />} />
+          <Route path="/creator/studio" element={
+            <ProtectedRoute>
+              <CreatorStudio />
             </ProtectedRoute>
           } />
 

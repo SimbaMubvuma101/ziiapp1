@@ -57,6 +57,11 @@ export interface Prediction {
     teamB?: string;
     format?: string;
   };
+  
+  // Creator Fields
+  created_by_creator?: string; // Creator UID if created by a creator
+  creator_name?: string; // Creator display name
+  creator_share?: number; // 50% of platform commission
 }
 
 export interface UserEntry {
@@ -109,6 +114,13 @@ export interface FirestoreUser {
   country?: string;
   affiliate_id?: string; // ID of the affiliate who referred this user
   referred_by?: string; // ID of another user who referred (legacy)
+  
+  // Creator Status
+  isCreator?: boolean;
+  creator_name?: string;
+  creator_country?: string;
+  total_events_created?: number;
+  total_commission_earned?: number;
 }
 
 // Voucher System
@@ -142,4 +154,26 @@ export interface PlatformSettings {
   min_cashout: number;
   banner_message: string;
   banner_active: boolean;
+}
+
+// Creator Invite
+export interface CreatorInvite {
+  id?: string;
+  code: string;
+  name: string; // Creator name
+  country: string;
+  status: 'active' | 'claimed' | 'revoked';
+  created_at: any;
+  created_by: string;
+  claimed_by?: string;
+  claimed_at?: any;
+}
+
+// Creator Profile Extension
+export interface CreatorProfile {
+  isCreator: boolean;
+  creator_name: string;
+  creator_country: string;
+  total_events_created: number;
+  total_commission_earned: number;
 }
