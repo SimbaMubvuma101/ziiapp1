@@ -33,18 +33,35 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+      });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
+      const contentType = response.headers.get('content-type');
+      
+      // Check if response is JSON
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed with status ${response.status}`);
+        }
+        
+        return data;
+      } else {
+        // Handle non-JSON responses
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server error: ${response.status} - ${text.substring(0, 100)}`);
+      }
+    } catch (err) {
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error('Network error - please check your connection');
     }
-
-    return data;
   }
 
   // Auth

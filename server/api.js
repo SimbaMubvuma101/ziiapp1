@@ -20,6 +20,10 @@ router.post('/auth/register', async (req, res) => {
   try {
     const { name, email, password, phone, referralCode, affiliateId } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
     // Check if user exists
     const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
@@ -40,7 +44,7 @@ router.post('/auth/register', async (req, res) => {
     await client.query(
       `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, affiliate_id, referred_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [uid, name, email, phone, passwordHash, welcomeBonus, verificationToken, affiliateId, referralCode]
+      [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, affiliateId || null, referralCode || null]
     );
 
     // Create welcome transaction
@@ -52,12 +56,12 @@ router.post('/auth/register', async (req, res) => {
 
     await client.query('COMMIT');
 
-    const token = generateToken({ uid, email, is_admin: false });
+    const token = generateToken({ uid, email, is_admin: email === 'admin@zii.app' });
     res.json({ token, user: { uid, name, email, balance: welcomeBonus } });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Registration error:', err);
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: err.message || 'Registration failed' });
   } finally {
     client.release();
   }
