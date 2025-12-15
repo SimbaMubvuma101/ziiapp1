@@ -33,9 +33,14 @@ export default defineConfig({
       }
     })
   ],
-  base: './',
+  base: '/',
   build: {
     outDir: 'dist',
     sourcemap: false
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5000,
+    allowedHosts: true
   }
 });
