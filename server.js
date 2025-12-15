@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = parseInt(process.env.PORT) || 3001;
+const PORT = parseInt(process.env.PORT) || (process.env.REPLIT_DEPLOYMENT ? 5000 : 3001);
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -125,15 +125,18 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-// Serve static files from the dist directory (production only)
+// Serve static files from the dist directory
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
+  console.log('Serving static files from:', distPath);
   app.use(express.static(distPath));
 
-  // Handle SPA routing
+  // Handle SPA routing - must come after API routes
   app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
+} else {
+  console.warn('Warning: dist directory not found. Static files will not be served.');
 }
 
 app.listen(PORT, '0.0.0.0', () => {
