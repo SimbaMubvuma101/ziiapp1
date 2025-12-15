@@ -206,9 +206,12 @@ export const CreatorInvitePage: React.FC = () => {
       });
 
       setSuccess(true);
+      
+      // Wait longer to ensure Firestore listener updates userProfile
       setTimeout(() => {
-        navigate('/creator/studio');
-      }, 2000);
+        // Force a page reload to ensure auth context is fully synced
+        window.location.hash = '/creator/studio';
+      }, 3000);
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {

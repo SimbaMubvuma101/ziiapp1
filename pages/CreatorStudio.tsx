@@ -46,7 +46,13 @@ export const CreatorStudio: React.FC = () => {
   const [confirmStep, setConfirmStep] = useState(0);
 
   useEffect(() => {
-    if (!currentUser || !userProfile?.isCreator) {
+    if (!currentUser) {
+      navigate('/earn');
+      return;
+    }
+    
+    // Wait for userProfile to load before checking creator status
+    if (userProfile && !userProfile.isCreator) {
       navigate('/earn');
       return;
     }
@@ -242,7 +248,16 @@ export const CreatorStudio: React.FC = () => {
     setStatusMsg(`Link copied!`);
   };
 
-  if (!userProfile?.isCreator) return null;
+  // Show loader while profile is still loading
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen bg-zii-bg flex items-center justify-center">
+        <Loader size={50} className="text-zii-accent" />
+      </div>
+    );
+  }
+  
+  if (!userProfile.isCreator) return null;
 
   if (selectedPred) {
     const totalVolume = predEntries.reduce((acc, curr) => acc + (curr.amount || 0), 0);
