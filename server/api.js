@@ -688,11 +688,11 @@ router.post('/creator-invites/claim', async (req, res) => {
 
       await client.query(
         `INSERT INTO users (
-          uid, email, password_hash, name, phone, country,
+          uid, email, password_hash, name, phone_number, country,
           is_creator, creator_name, creator_country,
-          balance, total_wagered, total_won, level, xp,
+          balance, winnings_balance, level, xp,
           email_verified, is_admin, total_events_created, total_commission_earned
-        ) VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, 0, 0, 0, 1, 0, true, false, 0, 0)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, 0, 0, 1, 0, true, false, 0, 0)`,
         [userId, email, hashedPassword, invite.name, '', invite.country, invite.name, invite.country]
       );
     }
