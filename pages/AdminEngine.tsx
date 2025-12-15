@@ -774,7 +774,7 @@ export const AdminEngine: React.FC = () => {
     <div className="min-h-screen bg-zii-bg text-white pb-24">
       {selectedPred && renderDetailView()}
 
-      {(activeTab === 'deploy' || activeTab === 'mint' || activeTab === 'analytics' || activeTab === 'partners' || activeTab === 'settings') && (
+      {(activeTab === 'deploy' || activeTab === 'mint' || activeTab === 'analytics' || activeTab === 'partners' || activeTab === 'creators' || activeTab === 'settings') && (
         <div className="p-4 animate-in fade-in max-w-md mx-auto">
             <div className="flex justify-between items-center mb-8 pt-2">
                 <div>
