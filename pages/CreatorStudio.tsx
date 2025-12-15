@@ -243,7 +243,8 @@ export const CreatorStudio: React.FC = () => {
 
   const copyEventLink = (eventId: string) => {
     const baseUrl = window.location.href.split('#')[0];
-    const link = `${baseUrl}#/creator/event/${eventId}`;
+    const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const link = `${cleanBase}/#/creator/event/${eventId}`;
     navigator.clipboard.writeText(link);
     setStatusMsg(`Link copied!`);
   };

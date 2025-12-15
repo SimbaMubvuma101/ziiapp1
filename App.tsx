@@ -23,7 +23,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          
+
           {/* Admin Route */}
           <Route path="/admin" element={
             <ProtectedRoute>
@@ -38,7 +38,11 @@ const App: React.FC = () => {
               <CreatorStudio />
             </ProtectedRoute>
           } />
-          <Route path="/:creatorname" element={<CreatorInvitePage />} />
+          {/* This route is for shared creator events. It will display only the specified event. */}
+          <Route path="/creator/event/:eventId" element={<Feed sharedEventMode={true} />} />
+          {/* Assuming CreatorInvitePage is also the intended component for invite/:inviteId */}
+          <Route path="/creator/invite/:inviteId" element={<CreatorInvitePage />} />
+
 
           {/* Public App Routes (Components handle guest state internally) */}
           <Route element={<Layout />}>
@@ -46,7 +50,7 @@ const App: React.FC = () => {
             <Route path="/active" element={<Active />} />
             <Route path="/wallet" element={<Wallet />} />
           </Route>
-          
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

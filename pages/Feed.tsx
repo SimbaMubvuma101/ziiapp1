@@ -10,20 +10,24 @@ import { AuthPromptModal } from '../components/AuthPromptModal';
 import { LevelUpOverlay } from '../components/LevelUpOverlay';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, runTransaction, doc, serverTimestamp, deleteDoc, writeBatch, getDocs, increment } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, runTransaction, doc, serverTimestamp, deleteDoc, writeBatch, getDocs, increment, getDoc } from 'firebase/firestore';
 import { SplashLoader, Loader } from '../components/Loader';
 import { Trash2, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { calculateAMMOdds, FIXED_PAYOUT_AMOUNT } from '../utils/amm';
 import { GAME_CONFIG, getLevelFromXP, isMilestoneLevel } from '../utils/gamification';
+import { useParams, useNavigate } from 'react-router-dom';
 
 interface FeedProps {
   adminMode?: boolean;
   onPredictionClick?: (prediction: Prediction) => void;
   adminStatusFilter?: 'open' | 'closed' | 'resolved';
+  sharedEventMode?: boolean;
 }
 
-export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick, adminStatusFilter }) => {
+export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick, adminStatusFilter, sharedEventMode = false }) => {
   const { userProfile, currentUser, isAdmin: authIsAdmin, userCountry } = useAuth();
+  const { eventId } = useParams();
+  const navigate = useNavigate();
   // Force admin flag if we are in admin mode (implies parent checked permissions)
   const effectiveIsAdmin = adminMode || authIsAdmin;
 
@@ -136,6 +140,37 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
   // 2. Fetch Predictions Real-time
   useEffect(() => {
+    // SHARED EVENT MODE: Fetch single event only
+    if (sharedEventMode && eventId) {
+      const fetchSharedEvent = async () => {
+        try {
+          const eventDoc = await getDoc(doc(db, "predictions", eventId));
+          if (eventDoc.exists()) {
+            const data = eventDoc.data();
+            let closesAtStr = new Date(Date.now() + 31536000000).toISOString();
+            if (data.closes_at) {
+              if (data.closes_at.toDate) {
+                closesAtStr = data.closes_at.toDate().toISOString();
+              } else if (typeof data.closes_at === 'string') {
+                closesAtStr = data.closes_at;
+              }
+            }
+            setPredictions([{ id: eventDoc.id, ...data, closes_at: closesAtStr } as Prediction]);
+          } else {
+            // Event not found, redirect to feed
+            navigate('/');
+          }
+          setLoading(false);
+        } catch (err) {
+          console.error("Error fetching shared event:", err);
+          navigate('/');
+        }
+      };
+      fetchSharedEvent();
+      return;
+    }
+
+    // NORMAL MODE: Fetch all events
     let q;
     
     if (adminMode) {
@@ -495,6 +530,13 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       setIsSubmitting(false);
       setSelectedPrediction(null);
       
+      // If in shared event mode, redirect to full feed after voting
+      if (sharedEventMode) {
+          setTimeout(() => {
+              navigate('/');
+          }, 1500);
+      }
+      
       if (leveledUp) {
           setNewLevelData({ level: nextLevel, reward: rewardAmount > 0 ? rewardAmount : undefined });
       } else {
@@ -614,8 +656,8 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           />
       )}
 
-      {/* Category Tabs (Hide in Admin Mode) */}
-      {!adminMode && (
+      {/* Category Tabs (Hide in Admin Mode or Shared Event Mode) */}
+      {!adminMode && !sharedEventMode && (
         <div className="mb-8">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 snap-x">
                 {tabs.map((cat) => (
