@@ -12,11 +12,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, runTransaction, doc, serverTimestamp, deleteDoc, writeBatch, getDocs, increment } from 'firebase/firestore';
 import { SplashLoader, Loader } from '../components/Loader';
-import { Trash2, ChevronLeft, ChevronRight, Trophy, Star } from 'lucide-react';
+import { Trash2, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { calculateAMMOdds, FIXED_PAYOUT_AMOUNT } from '../utils/amm';
 import { GAME_CONFIG, getLevelFromXP, isMilestoneLevel } from '../utils/gamification';
-import { useParams } from 'react-router-dom';
-import { SUPPORTED_COUNTRIES } from '../constants';
 
 interface FeedProps {
   adminMode?: boolean;
@@ -29,29 +27,28 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   // Force admin flag if we are in admin mode (implies parent checked permissions)
   const effectiveIsAdmin = adminMode || authIsAdmin;
 
-  const { creatorName } = useParams<{ creatorName?: string }>();
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
-
+  
   // Track which events the user has already bet on
   // Map predictionId -> UserEntry
   const [userEntries, setUserEntries] = useState<Record<string, UserEntry>>({});
-
+  
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<UserEntry | null>(null); // For showing details
   const [selectedEntryPrediction, setSelectedEntryPrediction] = useState<Prediction | null>(null); // For detail context (countdown)
-
+  
   const [activeTab, setActiveTab] = useState('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-
+  
   // Celebration & Cashout State
   const [celebrationEntries, setCelebrationEntries] = useState<UserEntry[]>([]);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
-
+  
   // Level Up State
   const [newLevelData, setNewLevelData] = useState<{level: number, reward?: number} | null>(null);
-
+  
   // Auth Prompt State
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
@@ -61,13 +58,6 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   const [pullY, setPullY] = useState(0);
   const touchStartY = useRef(0);
   const scrollContainerRef = useRef<HTMLElement | null>(null);
-
-  // Creator View State
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedCountry, setSelectedCountry] = useState('All');
-  const [creatorId, setCreatorId] = useState<string | null>(null);
-  const [isCreatorView, setIsCreatorView] = useState(false);
-
 
   const tabs = [
     'All',
@@ -84,7 +74,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
     // Query for 'won' entries. We will filter client-side for 'celebrated'
     const q = query(
-        collection(db, "entries"),
+        collection(db, "entries"), 
         where("userId", "==", userProfile.uid),
         where("status", "==", "won")
     );
@@ -130,7 +120,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           setUserEntries({});
           return;
       }
-
+      
       const q = query(collection(db, "entries"), where("userId", "==", userProfile.uid));
       const unsubscribe = onSnapshot(q, (snapshot) => {
           const map: Record<string, UserEntry> = {};
@@ -144,44 +134,12 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       return () => unsubscribe();
   }, [userProfile]);
 
-  // Check if viewing a creator profile
-  useEffect(() => {
-    if (creatorName) {
-      setIsCreatorView(true);
-      // Look up creator by name
-      const lookupCreator = async () => {
-        const usersQuery = query(
-          collection(db, "users"),
-          where("creator_name", "==", creatorName),
-          limit(1)
-        );
-        const snapshot = await getDocs(usersQuery);
-        if (!snapshot.empty) {
-          setCreatorId(snapshot.docs[0].id);
-        }
-      };
-      lookupCreator();
-    } else {
-      setIsCreatorView(false);
-      setCreatorId(null);
-    }
-  }, [creatorName]);
-
   // 2. Fetch Predictions Real-time
   useEffect(() => {
     let q;
-
-    // If viewing creator profile, filter by creator
-    if (isCreatorView && creatorId) {
-      q = query(
-        collection(db, "predictions"),
-        where("status", "==", PredictionStatus.OPEN),
-        where("created_by_creator", "==", creatorId),
-        orderBy("created_at", "desc"),
-        limit(50)
-      );
-    } else if (adminMode) {
-        // Safe Admin Query: Fetch all relevant statuses.
+    
+    if (adminMode) {
+        // Safe Admin Query: Fetch all relevant statuses. 
         q = query(collection(db, "predictions"), where("status", "in", ["open", "closed", "resolved"]));
     } else {
         // Users only see OPEN, and filter by country in memory or query
@@ -194,7 +152,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let preds = snapshot.docs.map(doc => {
         const data = doc.data();
-
+        
         // Robust Date Handling
         let closesAtStr = new Date(Date.now() + 31536000000).toISOString(); // Default 1 year if missing
         if (data.closes_at) {
@@ -213,15 +171,15 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       }) as Prediction[];
 
       // --- FILTERING LOGIC ---
-
+      
       // 1. Country Filter (Crucial)
       // If admin, show all. If user, only show their country.
       // FIX: Default missing country to 'ZW' (Legacy compatibility)
-      if (!adminMode && !isCreatorView) { // Don't filter by country if it's a creator view
+      if (!adminMode) {
          preds = preds.filter(p => {
              const pCountry = p.country || 'ZW';
              return pCountry === userCountry;
-         });
+         }); 
       }
 
       // 2. Hide expired events from Users immediately
@@ -229,7 +187,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           const now = new Date();
           preds = preds.filter(p => new Date(p.closes_at) > now);
       }
-
+      
       // --- SORTING LOGIC ---
       if (adminMode) {
            // Admin: Group by Status, then sort by Deadline (Soonest First)
@@ -240,7 +198,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
                const statA = statusOrder[a.status] ?? 99;
                // @ts-ignore
                const statB = statusOrder[b.status] ?? 99;
-
+               
                if (statA !== statB) return statA - statB;
 
                // 2. Deadline Priority: Soonest First (Ascending)
@@ -259,7 +217,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     });
 
     return () => unsubscribe();
-  }, [adminMode, userCountry, refreshTrigger, isCreatorView, creatorId]); // Add creatorId to dependencies
+  }, [adminMode, userCountry, refreshTrigger]);
 
   // Pull-to-Refresh Logic
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -268,7 +226,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         scrollContainerRef.current = (e.target as HTMLElement).closest('.overflow-y-auto');
     }
     const scrollTop = scrollContainerRef.current?.scrollTop || 0;
-
+    
     // Only enable if at top
     if (scrollTop <= 0) {
         touchStartY.current = e.touches[0].clientY;
@@ -287,14 +245,14 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     // Only allow pulling down
     if (diff > 0) {
         // Logarithmic/damped resistance
-        const dampened = Math.min(diff * 0.4, 120);
+        const dampened = Math.min(diff * 0.4, 120); 
         setPullY(dampened);
     }
   };
 
   const handleTouchEnd = () => {
     if (touchStartY.current === 0) return;
-
+    
     if (pullY > 60) {
         handleRefresh();
     }
@@ -305,10 +263,10 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   const handleRefresh = () => {
       if (isRefreshing) return;
       setIsRefreshing(true);
-
+      
       // Force Effect Re-run (re-subscribes to listeners)
       setRefreshTrigger(prev => prev + 1);
-
+      
       // Aesthetic delay for UX
       setTimeout(() => {
           setIsRefreshing(false);
@@ -348,9 +306,9 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         setShowAuthPrompt(true);
         return;
     }
-
+    
     if (!selectedPrediction) return;
-
+    
     // Client-side deadline check
     if (new Date(selectedPrediction.closes_at) < new Date()) {
         alert("This prediction has closed.");
@@ -368,7 +326,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
     try {
       // --- PARTNER ATTRIBUTION LOGIC (Outside Transaction for Read) ---
       let affiliateIdToCredit: string | null = null;
-
+      
       // 1. Check LocalStorage for Active 7-Day Cookie
       const localRefCode = localStorage.getItem('zii_ref_code');
       const localRefExp = localStorage.getItem('zii_ref_expiry');
@@ -398,9 +356,9 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         // A. Get fresh User Data (Balance Check)
         const userRef = doc(db, "users", userProfile.uid);
         const userDoc = await transaction.get(userRef);
-
+        
         if (!userDoc.exists()) throw new Error("User does not exist");
-
+        
         const userData = userDoc.data();
         const currentBalance = userData.balance || 0;
         if (currentBalance < amount) {
@@ -426,7 +384,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         const predRef = doc(db, "predictions", selectedPrediction.id);
         const predDoc = await transaction.get(predRef);
         if (!predDoc.exists()) throw new Error("Prediction not found");
-
+        
         const freshPred = predDoc.data() as Prediction;
         const option = freshPred.options.find(o => o.id === optionId);
         if (!option) throw new Error("Invalid Option");
@@ -434,28 +392,28 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         // C. Prepare Entry Data
         const entryId = `${userProfile.uid}_${selectedPrediction.id}`;
         const entryRef = doc(db, "entries", entryId);
-
+        
         // --- PAYOUT CALCULATION ---
         const effectiveMultiplier = freshPred.multiplier || 1;
         const lockedInPayout = FIXED_PAYOUT_AMOUNT * effectiveMultiplier;
 
         // D. Perform Writes
-
+        
         // 1. Deduct Balance + Add Reward if Applicable
         let newBalance = currentBalance - amount;
         if (rewardAmount > 0) newBalance += rewardAmount;
-
-        transaction.update(userRef, {
+        
+        transaction.update(userRef, { 
             balance: newBalance,
             xp: newXP,
             level: nextLevel
         });
-
+        
         // 2. Create Entry
         transaction.set(entryRef, {
            id: entryId,
            userId: userProfile.uid,
-           username: userProfile.name,
+           username: userProfile.name, 
            prediction_id: selectedPrediction.id,
            prediction_question: selectedPrediction.question,
            selected_option_id: optionId,
@@ -475,7 +433,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
             description: `Entry: ${selectedPrediction.question.substring(0, 20)}...`,
             created_at: serverTimestamp()
         });
-
+        
         // 4. Create Transaction Record (Reward if applicable)
         if (rewardAmount > 0) {
             const rewardTxRef = doc(collection(db, "transactions"));
@@ -487,12 +445,12 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
                 created_at: serverTimestamp()
             });
         }
-
+        
         // 5. Update Prediction Liquidity
         const currentPool = freshPred.liquidity_pool || {};
         const currentOptionLiq = currentPool[optionId] || 0;
         const newLiquidityPool = { ...currentPool, [optionId]: currentOptionLiq + amount };
-
+        
         transaction.update(predRef, {
             pool_size: (freshPred.pool_size || 0) + 1,
             liquidity_pool: newLiquidityPool
@@ -501,13 +459,13 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         // 6. AFFILIATE LOGIC (Using resolved ID)
         if (affiliateIdToCredit) {
              const affRef = doc(db, "affiliates", affiliateIdToCredit);
-
-             // Logic:
+             
+             // Logic: 
              // House Comm = 5% of amount
              // Aff Comm = 10% of House Comm (0.5% of amount)
              const houseComm = amount * 0.05;
              const affiliateComm = houseComm * 0.10;
-
+             
              transaction.update(affRef, {
                  total_volume: increment(amount),
                  commission_owed: increment(affiliateComm)
@@ -520,7 +478,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           if (p.id === selectedPrediction.id) {
               const currentPool = p.liquidity_pool || {};
               const currentOptionLiq = currentPool[optionId] || 0;
-
+              
               return {
                   ...p,
                   pool_size: (p.pool_size || 0) + 1,
@@ -536,7 +494,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       // Success
       setIsSubmitting(false);
       setSelectedPrediction(null);
-
+      
       if (leveledUp) {
           setNewLevelData({ level: nextLevel, reward: rewardAmount > 0 ? rewardAmount : undefined });
       } else {
@@ -568,7 +526,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       // Browser Confirm Dialog
       const confirmed = window.confirm("⚠️ PERMANENTLY DELETE?\n\nThis cannot be undone.");
       if (!confirmed) return;
-
+      
       try {
           // Optimistic Update
           setPredictions(prev => prev.filter(p => p.id !== id));
@@ -589,7 +547,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       const now = new Date();
       filteredPredictions = predictions.filter(p => {
          const isExpired = new Date(p.closes_at) < now;
-
+         
          if (adminStatusFilter === 'open') {
              return p.status === 'open' && !isExpired;
          }
@@ -611,17 +569,17 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   }
 
   return (
-    <div
+    <div 
         className="pb-24 pt-4 px-4 space-y-4 animate-in fade-in duration-500 relative min-h-[80vh]"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
+        onTouchStart={handleTouchStart} 
+        onTouchMove={handleTouchMove} 
         onTouchEnd={handleTouchEnd}
     >
-
+      
       {/* Pull to Refresh Indicator */}
-      <div
+      <div 
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none transition-all duration-300"
-          style={{
+          style={{ 
               // Account for TopBar height (3.5rem) + Safe Area + Padding
               top: 'calc(3.5rem + env(safe-area-inset-top) + 20px)',
               transform: `translateY(${isRefreshing ? 20 : Math.max(0, pullY - 40)}px)`,
@@ -635,7 +593,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
       {/* Celebration Modal */}
       {celebrationEntries.length > 0 && (
-          <CelebrationModal
+          <CelebrationModal 
               entries={celebrationEntries}
               onClose={handleDismissCelebration}
               onCashout={handleCelebrationCashout}
@@ -646,42 +604,27 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
       {showAuthPrompt && (
           <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />
       )}
-
+      
       {/* Level Up Overlay */}
       {newLevelData && (
-          <LevelUpOverlay
-            newLevel={newLevelData.level}
-            reward={newLevelData.reward}
-            onClose={() => setNewLevelData(null)}
+          <LevelUpOverlay 
+            newLevel={newLevelData.level} 
+            reward={newLevelData.reward} 
+            onClose={() => setNewLevelData(null)} 
           />
       )}
 
-      {/* Creator Profile Header */}
-      {isCreatorView && (
-        <div className="bg-gradient-to-br from-zii-accent/20 to-purple-500/20 border border-zii-accent/30 rounded-3xl p-6 mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-zii-accent/30 rounded-full flex items-center justify-center">
-              <Star className="text-zii-accent" size={24} />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-white">@{creatorName}</h2>
-              <p className="text-xs text-white/60 uppercase tracking-wide font-bold">Creator Profile</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Category Tabs (Hide in Admin Mode) */}
-      {!adminMode && !isCreatorView && (
+      {!adminMode && (
         <div className="mb-8">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 snap-x">
                 {tabs.map((cat) => (
-                <button
+                <button 
                     key={cat}
                     onClick={() => setActiveTab(cat)}
                     className={`snap-start whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all duration-300 border border-transparent flex-shrink-0 ${
-                    activeTab === cat
-                        ? 'bg-white text-black shadow-md shadow-white/5'
+                    activeTab === cat 
+                        ? 'bg-white text-black shadow-md shadow-white/5' 
                         : 'bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white'
                     }`}
                 >
@@ -689,7 +632,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
                 </button>
                 ))}
             </div>
-
+            
             {/* Visual Cue - Swipe Indicator */}
             <div className="flex items-center justify-center gap-3 text-[9px] text-white/20 uppercase tracking-widest font-bold mt-1">
                 <ChevronLeft size={10} className="animate-pulse" />
@@ -703,20 +646,20 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         {filteredPredictions.length > 0 ? (
           filteredPredictions.map((pred) => (
             <div key={pred.id} className="relative group isolate">
-
+                
                 {/* 1. The Clickable Card (Rendered FIRST) */}
-                <PredictionCard
-                    prediction={pred}
-                    onSelect={handleCardClick}
+                <PredictionCard 
+                    prediction={pred} 
+                    onSelect={handleCardClick} 
                     isAdmin={effectiveIsAdmin}
                 />
 
                 {/* 2. Admin Status Badge Overlay (Rendered AFTER) */}
                 {adminMode && (
                     <div className={`pointer-events-none absolute top-0 left-0 z-20 px-3 py-1 rounded-br-xl rounded-tl-2xl text-[10px] font-bold uppercase tracking-wider shadow-lg ${
-                        pred.status === 'open'
+                        pred.status === 'open' 
                             ? (new Date(pred.closes_at) < new Date() ? 'bg-orange-500 text-white' : 'bg-zii-accent text-black')
-                            : pred.status === 'closed' ? 'bg-red-500 text-white'
+                            : pred.status === 'closed' ? 'bg-red-500 text-white' 
                             : pred.status === 'resolved' ? 'bg-green-500 text-black'
                             : 'bg-white text-black'
                     }`}>
@@ -742,8 +685,8 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           ))
         ) : (
           <div className="text-center py-10 text-white/30 flex flex-col items-center">
-            <p className="mb-4">{isCreatorView ? "This creator has no open predictions." : "No predictions found for your location."}</p>
-            {!adminMode && !isCreatorView && (
+            <p className="mb-4">No predictions found for your location.</p>
+            {!adminMode && (
                 <p className="text-xs text-white/40">Try changing your country in Profile.</p>
             )}
           </div>
@@ -752,7 +695,7 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
       {/* Entry Modal for Betting */}
       {!onPredictionClick && (
-        <EntryModal
+        <EntryModal 
             prediction={selectedPrediction}
             isLoading={isSubmitting}
             onClose={() => !isSubmitting && setSelectedPrediction(null)}
@@ -762,23 +705,23 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
 
       {/* Details Modal for View Only */}
       {selectedEntry && (
-          <BetDetailsModal
-             entry={selectedEntry}
+          <BetDetailsModal 
+             entry={selectedEntry} 
              prediction={selectedEntryPrediction}
-             onClose={() => { setSelectedEntry(null); setSelectedEntryPrediction(null); }}
+             onClose={() => { setSelectedEntry(null); setSelectedEntryPrediction(null); }} 
           />
       )}
 
       {showSuccess && (
-        <SuccessOverlay
-          message="Prediction Locked In!"
-          onDismiss={() => setShowSuccess(false)}
+        <SuccessOverlay 
+          message="Prediction Locked In!" 
+          onDismiss={() => setShowSuccess(false)} 
         />
       )}
 
       {/* Cashout Modal (Triggered from Celebration) */}
       {showCashoutModal && userProfile && (
-          <CashoutModal
+          <CashoutModal 
               balance={userProfile.winnings_balance || 0}
               onClose={() => setShowCashoutModal(false)}
           />

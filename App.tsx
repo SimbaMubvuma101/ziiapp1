@@ -23,7 +23,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-
+          
           {/* Admin Route */}
           <Route path="/admin" element={
             <ProtectedRoute>
@@ -38,7 +38,15 @@ const App: React.FC = () => {
               <CreatorStudio />
             </ProtectedRoute>
           } />
-          <Route path="/:creatorName" element={<Feed />} />
+
+          {/* Public App Routes (Components handle guest state internally) */}
+          <Route element={<Layout />}>
+            <Route path="/earn" element={<Feed />} />
+            <Route path="/active" element={<Active />} />
+            <Route path="/wallet" element={<Wallet />} />
+          </Route>
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </HashRouter>
