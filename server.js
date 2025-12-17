@@ -98,8 +98,9 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
   res.json({ received: true });
 });
 
-// Regular JSON parsing for all other routes
-app.use(express.json());
+// Parse JSON bodies - MUST come before routes
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Mount API routes
 app.use('/api', apiRouter);

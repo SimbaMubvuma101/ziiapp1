@@ -15,23 +15,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Vite Dev Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Backend API Server"
-
-[[workflows.workflow]]
-name = "Vite Dev Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "Backend API Server"
