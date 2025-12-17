@@ -62,21 +62,11 @@ export async function initDatabase() {
   try {
     await client.query('BEGIN');
 
-    // Drop all tables if they exist (clean slate)
-    await client.query(`
-      DROP TABLE IF EXISTS transactions CASCADE;
-      DROP TABLE IF EXISTS entries CASCADE;
-      DROP TABLE IF EXISTS vouchers CASCADE;
-      DROP TABLE IF EXISTS creator_invites CASCADE;
-      DROP TABLE IF EXISTS affiliates CASCADE;
-      DROP TABLE IF EXISTS platform_settings CASCADE;
-      DROP TABLE IF EXISTS predictions CASCADE;
-      DROP TABLE IF EXISTS users CASCADE;
-    `);
+    // Create tables only if they don't exist (preserves data on restart)
 
     // Create users table
     await client.query(`
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         uid VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -105,7 +95,7 @@ export async function initDatabase() {
 
     // Create predictions table
     await client.query(`
-      CREATE TABLE predictions (
+      CREATE TABLE IF NOT EXISTS predictions (
         id VARCHAR(255) PRIMARY KEY,
         question TEXT NOT NULL,
         category VARCHAR(100),
@@ -129,7 +119,7 @@ export async function initDatabase() {
 
     // Create entries table
     await client.query(`
-      CREATE TABLE entries (
+      CREATE TABLE IF NOT EXISTS entries (
         id VARCHAR(255) PRIMARY KEY,
         user_id VARCHAR(255) NOT NULL REFERENCES users(uid),
         username VARCHAR(255) NOT NULL,
@@ -147,7 +137,7 @@ export async function initDatabase() {
 
     // Create transactions table
     await client.query(`
-      CREATE TABLE transactions (
+      CREATE TABLE IF NOT EXISTS transactions (
         id SERIAL PRIMARY KEY,
         user_id VARCHAR(255) NOT NULL REFERENCES users(uid),
         type VARCHAR(50) NOT NULL,
@@ -160,7 +150,7 @@ export async function initDatabase() {
 
     // Create vouchers table
     await client.query(`
-      CREATE TABLE vouchers (
+      CREATE TABLE IF NOT EXISTS vouchers (
         id SERIAL PRIMARY KEY,
         code VARCHAR(50) UNIQUE NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
@@ -174,7 +164,7 @@ export async function initDatabase() {
 
     // Create affiliates table
     await client.query(`
-      CREATE TABLE affiliates (
+      CREATE TABLE IF NOT EXISTS affiliates (
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         code VARCHAR(50) UNIQUE NOT NULL,
@@ -187,7 +177,7 @@ export async function initDatabase() {
 
     // Create creator_invites table
     await client.query(`
-      CREATE TABLE creator_invites (
+      CREATE TABLE IF NOT EXISTS creator_invites (
         id SERIAL PRIMARY KEY,
         code VARCHAR(100) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -202,7 +192,7 @@ export async function initDatabase() {
 
     // Create platform_settings table
     await client.query(`
-      CREATE TABLE platform_settings (
+      CREATE TABLE IF NOT EXISTS platform_settings (
         id INTEGER PRIMARY KEY DEFAULT 1,
         maintenance_mode BOOLEAN DEFAULT false,
         welcome_bonus DECIMAL(10, 2) DEFAULT 100,
@@ -216,15 +206,15 @@ export async function initDatabase() {
 
     // Create indexes for better performance
     await client.query(`
-      CREATE INDEX idx_predictions_status ON predictions(status);
-      CREATE INDEX idx_predictions_country ON predictions(country);
-      CREATE INDEX idx_predictions_closes_at ON predictions(closes_at);
-      CREATE INDEX idx_predictions_creator ON predictions(created_by_creator);
-      CREATE INDEX idx_entries_user_id ON entries(user_id);
-      CREATE INDEX idx_entries_prediction_id ON entries(prediction_id);
-      CREATE INDEX idx_entries_status ON entries(status);
-      CREATE INDEX idx_transactions_user_id ON transactions(user_id);
-      CREATE INDEX idx_transactions_created_at ON transactions(created_at);
+      CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
+      CREATE INDEX IF NOT EXISTS idx_predictions_country ON predictions(country);
+      CREATE INDEX IF NOT EXISTS idx_predictions_closes_at ON predictions(closes_at);
+      CREATE INDEX IF NOT EXISTS idx_predictions_creator ON predictions(created_by_creator);
+      CREATE INDEX IF NOT EXISTS idx_entries_user_id ON entries(user_id);
+      CREATE INDEX IF NOT EXISTS idx_entries_prediction_id ON entries(prediction_id);
+      CREATE INDEX IF NOT EXISTS idx_entries_status ON entries(status);
+      CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
     `);
 
     // Insert default platform settings

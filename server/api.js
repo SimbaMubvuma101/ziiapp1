@@ -167,7 +167,7 @@ router.get('/auth/me', authenticateMiddleware, async (req, res) => {
 
 router.get('/predictions', async (req, res) => {
   try {
-    const { status = 'open', category, country, creatorId, eventId } = req.query;
+    const { status, category, country, creatorId, eventId } = req.query;
 
     let query = 'SELECT * FROM predictions WHERE 1=1';
     const params = [];

@@ -150,8 +150,8 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
         let filters: any = {};
 
         if (adminMode) {
-          // Admin sees all statuses
-          // No specific status filter needed here, backend handles it
+          // Admin sees all statuses - request without status filter
+          // to get all predictions regardless of status
         } else {
           filters.status = 'open';
           // Filter by country is handled by the backend API call
