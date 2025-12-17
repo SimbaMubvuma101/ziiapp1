@@ -57,6 +57,9 @@ export const Register: React.FC = () => {
 
     try {
       console.log('Attempting registration...');
+      // Get partner code from localStorage if exists
+      const partnerCode = localStorage.getItem('zii_partner_code');
+
       await api.register({
         name,
         email,
@@ -64,26 +67,30 @@ export const Register: React.FC = () => {
         phone,
         referralCode: referralCode.trim() || undefined,
         affiliateId: referralCode.trim() || undefined,
-        country: localStorage.getItem('zii_user_country') || 'ZW'
+        country: localStorage.getItem('zii_user_country') || 'ZW',
+        partnerCode: partnerCode || undefined,
       });
 
       console.log('Registration successful');
-      
+
+      // Clear partner code after successful registration
+      localStorage.removeItem('zii_partner_code');
+
       // Small delay to ensure token is stored
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       // Refresh auth context to load the new user
       await refreshUser();
-      
+
       // Check for pending event redirect
       const pendingEvent = localStorage.getItem('zii_pending_event');
       const pendingTab = localStorage.getItem('zii_pending_tab');
-      
+
       if (pendingEvent) {
         // Clear the stored redirect
         localStorage.removeItem('zii_pending_event');
         localStorage.removeItem('zii_pending_tab');
-        
+
         // Redirect to the specific event
         navigate(`/earn?event=${pendingEvent}&tab=${pendingTab || 'creator'}`);
       } else if (email === 'admin@zii.app') {

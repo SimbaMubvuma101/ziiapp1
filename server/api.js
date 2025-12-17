@@ -58,9 +58,9 @@ router.post('/auth/hq-token', async (req, res) => {
 router.post('/auth/register', async (req, res) => {
   try {
     console.log('Registration attempt:', { email: req.body.email, hasPassword: !!req.body.password });
-    const { name, email, password, phone, referralCode, affiliateId, country } = req.body;
+    const { name, email, password, phone, referralCode, affiliateId, country, partnerCode } = req.body;
 
-    console.log('Registration attempt:', { name, email, phone, country, hasPassword: !!password });
+    console.log('Registration attempt:', { name, email, phone, country, hasPassword: !!password, partnerCode });
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -82,11 +82,34 @@ router.post('/auth/register', async (req, res) => {
     const settingsResult = await pool.query('SELECT welcome_bonus FROM platform_settings WHERE id = 1');
     const welcomeBonus = settingsResult.rows[0]?.welcome_bonus || 100;
 
-    // Create user with country
+    // Check if there's a valid partner referral
+    let partnerRefId = null;
+    let partnerRefExpiry = null;
+    
+    if (partnerCode) {
+      const partnerResult = await pool.query('SELECT id FROM affiliates WHERE code = $1', [partnerCode]);
+      if (partnerResult.rows.length > 0) {
+        partnerRefId = partnerResult.rows[0].id;
+        // Partner attribution expires 7 days from signup
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
+        partnerRefExpiry = expiry;
+        
+        // Update partner's active users count
+        await pool.query(
+          'UPDATE affiliates SET active_users_count = active_users_count + 1 WHERE id = $1',
+          [partnerRefId]
+        );
+      }
+    }
+
+    // Create user with partner tracking
     await pool.query(
-      `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, affiliate_id, referred_by, country)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, affiliateId || null, referralCode || null, country || 'ZW']
+      `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, 
+       affiliate_id, referred_by, country, referred_by_partner, partner_ref_expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, 
+       affiliateId || null, referralCode || null, country || 'ZW', partnerRefId, partnerRefExpiry]
     );
 
     // Create welcome transaction
@@ -100,7 +123,7 @@ router.post('/auth/register', async (req, res) => {
 
     const token = generateToken({ uid, email, is_admin: email === 'admin@zii.app' });
 
-    console.log('Registration successful:', uid);
+    console.log('Registration successful:', uid, 'Partner:', partnerRefId);
 
     res.status(200).json({ token, user: { uid, name, email, balance: welcomeBonus, country: country || 'ZW' } });
   } catch (err) {
@@ -319,6 +342,33 @@ router.post('/predictions/:id/resolve', authenticateMiddleware, adminMiddleware,
          VALUES ($1, 'winnings', $2, $3)`,
         [entry.user_id, actualPayout, `Won: ${prediction.question.substring(0, 15)}...`]
       );
+
+      // Track partner commission on winnings (5%) if within 7-day window
+      const userPartnerResult = await client.query(
+        'SELECT referred_by_partner, partner_ref_expires_at FROM users WHERE uid = $1',
+        [entry.user_id]
+      );
+      
+      if (userPartnerResult.rows.length > 0) {
+        const userPartner = userPartnerResult.rows[0];
+        
+        if (userPartner.referred_by_partner && userPartner.partner_ref_expires_at) {
+          const now = new Date();
+          const expiryDate = new Date(userPartner.partner_ref_expires_at);
+          
+          if (now <= expiryDate) {
+            const partnerWinningsCommission = actualPayout * 0.05; // 5% of winnings
+            
+            await client.query(
+              `UPDATE affiliates SET 
+               total_winnings_volume = total_winnings_volume + $1,
+               commission_owed = commission_owed + $2
+               WHERE id = $3`,
+              [actualPayout, partnerWinningsCommission, userPartner.referred_by_partner]
+            );
+          }
+        }
+      }
     }
 
     // Process losers
@@ -402,10 +452,15 @@ router.post('/entries', authenticateMiddleware, async (req, res) => {
     await client.query('BEGIN');
 
     // Check user balance
-    const userResult = await client.query('SELECT balance FROM users WHERE uid = $1', [req.user.uid]);
+    const userResult = await client.query(
+      'SELECT balance, referred_by_partner, partner_ref_expires_at FROM users WHERE uid = $1', 
+      [req.user.uid]
+    );
     if (userResult.rows[0].balance < amount) {
       throw new Error('Insufficient balance');
     }
+
+    const user = userResult.rows[0];
 
     // Deduct balance
     await client.query(
@@ -433,6 +488,25 @@ router.post('/entries', authenticateMiddleware, async (req, res) => {
        VALUES ($1, 'bet', $2, 'Placed entry')`,
       [req.user.uid, -amount]
     );
+
+    // Track partner commission (2.5% of entry) if within 7-day window
+    if (user.referred_by_partner && user.partner_ref_expires_at) {
+      const now = new Date();
+      const expiryDate = new Date(user.partner_ref_expires_at);
+      
+      if (now <= expiryDate) {
+        const partnerCommission = amount * 0.025; // 2.5% of entry
+        
+        await client.query(
+          `UPDATE affiliates SET 
+           total_volume = total_volume + $1,
+           total_entry_volume = total_entry_volume + $1,
+           commission_owed = commission_owed + $2
+           WHERE id = $3`,
+          [amount, partnerCommission, user.referred_by_partner]
+        );
+      }
+    }
 
     await client.query('COMMIT');
     res.json({ id: entryId, message: 'Entry placed' });

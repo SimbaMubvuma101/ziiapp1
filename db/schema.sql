@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
     total_events_created INTEGER DEFAULT 0,
     total_commission_earned DECIMAL(10, 2) DEFAULT 0,
     affiliate_id VARCHAR(255),
+    referred_by_partner VARCHAR(255),
+    partner_ref_expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP
 );
@@ -88,7 +90,10 @@ CREATE TABLE IF NOT EXISTS affiliates (
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     total_volume DECIMAL(10, 2) DEFAULT 0,
+    total_entry_volume DECIMAL(10, 2) DEFAULT 0,
+    total_winnings_volume DECIMAL(10, 2) DEFAULT 0,
     commission_owed DECIMAL(10, 2) DEFAULT 0,
+    active_users_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
