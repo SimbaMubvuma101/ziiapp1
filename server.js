@@ -3,7 +3,6 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import Stripe from 'stripe';
 import { pool, initDatabase } from './server/db.js';
 import apiRouter from './server/api.js';
 
@@ -25,9 +24,6 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors());
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
-
 // Initialize database
 initDatabase()
   .then(() => {
@@ -44,62 +40,6 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Webhook route MUST come before express.json() to get raw body
-app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET not configured');
-    return res.status(500).send('Webhook secret not configured');
-  }
-
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    console.error('Webhook signature verification failed:', errorMessage);
-    return res.status(400).send(`Webhook Error: ${errorMessage}`);
-  }
-
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const { userId, coins } = session.metadata;
-
-    try {
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-
-        await client.query(
-          'UPDATE users SET balance = balance + $1 WHERE uid = $2',
-          [coins, userId]
-        );
-
-        await client.query(
-          `INSERT INTO transactions (user_id, type, amount, description, payment_method, stripe_session_id)
-           VALUES ($1, 'deposit', $2, 'Card Payment (Stripe)', 'stripe', $3)`,
-          [userId, coins, session.id]
-        );
-
-        await client.query('COMMIT');
-        console.log(`Successfully credited ${coins} coins to user ${userId}`);
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
-      }
-    } catch (error) {
-      console.error('Failed to update user balance:', error);
-    }
-  }
-
-  res.json({ received: true });
 });
 
 // Parse JSON bodies - MUST come before routes

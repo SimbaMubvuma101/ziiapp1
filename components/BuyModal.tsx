@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { X, ChevronRight, DollarSign } from 'lucide-react';
 import { WHATSAPP_PHONE } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
-import { StripeCheckout } from './StripeCheckout';
 
 interface BuyModalProps {
   onClose: () => void;
@@ -96,17 +95,6 @@ export const BuyModal: React.FC<BuyModalProps> = ({ onClose }) => {
           </div>
 
           <div className="space-y-3">
-            <StripeCheckout 
-              coins={coins} 
-              costUsd={costUsd} 
-              onClose={onClose}
-            />
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-white/10"></div>
-              <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Or</span>
-              <div className="flex-1 h-px bg-white/10"></div>
-            </div>
 
             <button
               onClick={handleContinue}
