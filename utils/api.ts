@@ -1,16 +1,20 @@
 // Detect environment
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isReplitDomain = window.location.hostname.includes('.replit.dev') || 
+                       window.location.hostname.includes('.repl.co') || 
+                       window.location.hostname.includes('.replit.app');
 
-// For localhost development, use full URL
-// For deployed/production (including Replit), use empty string (same origin)
-const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '';
+// For localhost development, use full URL with port
+// For all Replit domains and production, use empty string (same origin - server handles both frontend and API)
+const API_BASE_URL = (isLocalhost && !isReplitDomain) ? 'http://localhost:5000' : '';
 
 // Log API configuration on load
 console.log('API Configuration:', { 
   hostname: window.location.hostname,
   isLocalhost,
+  isReplitDomain,
   apiBase: API_BASE_URL,
-  fullUrl: isLocalhost ? API_BASE_URL : window.location.origin
+  fullUrl: API_BASE_URL || window.location.origin
 });
 
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
