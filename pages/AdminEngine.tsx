@@ -145,13 +145,13 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
     // Wait for auth to load before checking
     if (authLoading) return;
-    
+
     // Only redirect if we have a user but they're not admin
     if (currentUser && !isAdmin) {
         navigate('/earn');
         return;
     }
-    
+
     if (isAdmin) {
         fetchStats();
     }
@@ -658,6 +658,14 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                 </div>
                 <button onClick={() => logout().then(() => navigate('/login'))} className="bg-white/5 hover:bg-white/10 p-2.5 rounded-full text-white/50 border border-white/5 transition-colors"><LogOut size={18} /></button>
             </div>
+
+            {bypassAuth && (
+                <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl">
+                    <p className="text-xs text-green-400 font-bold flex items-center gap-2">
+                        <CheckCircle size={14} /> HQ Access Active - Full Admin Controls Available
+                    </p>
+                </div>
+            )}
 
             {activeTab === 'settings' ? (
                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
@@ -1250,7 +1258,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                     <input type="text" value={resolutionSource} onChange={e => setResolutionSource(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all text-sm font-medium" placeholder="e.g. Official Twitter Account" />
                                 </div>
 
-                                <div className="space-y-1 pt-2 border-t border-white/5">
+                                <div className="space-y-2 pt-2 border-t border-white/5">
                                     <div className="flex justify-between items-center pr-1">
                                         <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Event Mode</label>
                                         {deployMode === 'high_roller' && <span className="text-[10px] text-zii-accent font-bold uppercase tracking-wide">High Roller Active</span>}
@@ -1310,7 +1318,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                                 <input required type="number" value={mintAmount} onChange={e => setMintAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono" placeholder="100" />
                                             </div>
                                         </div>
-                                        <button disabled={loading} className="w-full bg-white text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-zii-accent transition-colors shadow-lg shadow-white/5">
+                                        <button disabled={loading} className="w-full bg-white text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-white/5">
                                             {loading ? <Loader className="text-black" /> : <><Zap size={20} fill="currentColor" /> GENERATE CODE</>}
                                         </button>
                                     </form>
