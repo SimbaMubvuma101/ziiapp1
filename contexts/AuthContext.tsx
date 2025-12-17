@@ -68,7 +68,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.log('No token available for refresh');
+        return;
+      }
+      
+      console.log('Refreshing user data...');
       const user = await api.getCurrentUser();
+      console.log('User data refreshed:', { email: user.email, uid: user.uid });
+      
       setCurrentUser(user);
       setUserProfile(user as FirestoreUser);
       if (user.country) {
@@ -77,6 +86,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err) {
       console.error('Failed to refresh user:', err);
+      // If refresh fails, clear invalid token
+      api.clearToken();
+      setCurrentUser(null);
+      setUserProfile(null);
     }
   };
 

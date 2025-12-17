@@ -34,11 +34,11 @@ export const Login: React.FC = () => {
     try {
       const response = await api.login(email, password);
       
+      // Small delay to ensure token is stored
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       // Refresh auth context and wait for it to complete
       await refreshUser();
-      
-      // Small delay to ensure context has updated
-      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Check for pending event redirect
       const pendingEvent = localStorage.getItem('zii_pending_event');
