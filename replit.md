@@ -65,5 +65,10 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 - The server detects the environment and serves static files from dist/
 - PORT is set via environment variable (defaults to 5000)
 - Firebase has been completely removed from the project - using custom PostgreSQL database with JWT authentication instead
-- API routing uses relative paths (/api) for deployed environments and http://localhost:5000 for local development
-- Database connection automatically detects production deployments: if helium database URL is detected in production (REPL_DEPLOYMENT=1), it falls back to localhost to avoid DNS errors on deployed domains
+- API routing uses relative paths (/api) for deployed environments
+- **Database**: Replit Neon PostgreSQL database fully configured and tested
+  - DATABASE_URL is securely stored as an environment secret
+  - Connection pooling configured for production stability (max 20 connections)
+  - SSL enabled for Neon connections in production
+  - Database schema auto-initializes on server startup
+  - Verified working: "Database connection successful" in logs

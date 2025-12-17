@@ -7,18 +7,18 @@ console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
 console.log('Environment NODE_ENV:', process.env.NODE_ENV);
 console.log('Replit deployment:', !!process.env.REPL_DEPLOYMENT);
 
-// For production deployments, helium database hostname won't work
-// Fall back to localhost which works with PostgreSQL module
-let dbUrl = process.env.DATABASE_URL;
-if (dbUrl && dbUrl.includes('helium') && process.env.REPL_DEPLOYMENT === '1') {
-  console.log('Detected production deployment with helium URL, using localhost instead');
-  dbUrl = 'postgresql://postgres:password@localhost/postgres?sslmode=disable';
+// Use DATABASE_URL from environment (Replit Neon database)
+const dbUrl = process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  console.error('ERROR: DATABASE_URL is not set. Database connection will fail.');
 }
 
 // Database configuration with connection pooling and error handling
+// SSL is required for Neon connections
 const poolConfig = {
   connectionString: dbUrl,
-  ssl: process.env.NODE_ENV === 'production' && !dbUrl.includes('localhost') ? {
+  ssl: process.env.NODE_ENV === 'production' ? {
     rejectUnauthorized: false
   } : false,
   max: 20,
