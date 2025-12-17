@@ -24,8 +24,13 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
-          {/* Admin Route */}
+          {/* Admin Routes */}
           <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminEngine />
+            </ProtectedRoute>
+          } />
+          <Route path="/hq" element={
             <ProtectedRoute>
               <AdminEngine />
             </ProtectedRoute>
