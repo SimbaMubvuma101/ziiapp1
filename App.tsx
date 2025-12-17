@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './Layout';
 import { Landing } from './pages/Landing';
@@ -13,6 +13,7 @@ import { CreatorStudio } from './pages/CreatorStudio';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ReferralHandler } from './components/ReferralHandler';
+import { HQGuard } from './components/HQGuard';
 
 const App: React.FC = () => {
   return (
@@ -32,7 +33,9 @@ const App: React.FC = () => {
           } />
           <Route path="/hq" element={
             <ProtectedRoute>
-              <AdminEngine />
+              <HQGuard>
+                <AdminEngine />
+              </HQGuard>
             </ProtectedRoute>
           } />
 
