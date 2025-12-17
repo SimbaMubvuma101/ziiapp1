@@ -132,10 +132,13 @@ export async function initDatabase() {
       CREATE TABLE entries (
         id VARCHAR(255) PRIMARY KEY,
         user_id VARCHAR(255) NOT NULL REFERENCES users(uid),
+        username VARCHAR(255) NOT NULL,
         prediction_id VARCHAR(255) NOT NULL REFERENCES predictions(id),
-        selected_option_id VARCHAR(255),
+        prediction_question TEXT NOT NULL,
+        selected_option_id VARCHAR(255) NOT NULL,
+        selected_option_label VARCHAR(255) NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
-        potential_payout DECIMAL(10, 2),
+        potential_payout DECIMAL(10, 2) NOT NULL,
         status VARCHAR(50) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         celebrated BOOLEAN DEFAULT false
@@ -151,8 +154,7 @@ export async function initDatabase() {
         amount DECIMAL(10, 2) NOT NULL,
         description TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        payment_method VARCHAR(50),
-        stripe_session_id VARCHAR(255)
+        payment_method VARCHAR(50)
       )
     `);
 
@@ -215,10 +217,14 @@ export async function initDatabase() {
     // Create indexes for better performance
     await client.query(`
       CREATE INDEX idx_predictions_status ON predictions(status);
+      CREATE INDEX idx_predictions_country ON predictions(country);
+      CREATE INDEX idx_predictions_closes_at ON predictions(closes_at);
       CREATE INDEX idx_predictions_creator ON predictions(created_by_creator);
-      CREATE INDEX idx_entries_user ON entries(user_id);
-      CREATE INDEX idx_entries_prediction ON entries(prediction_id);
-      CREATE INDEX idx_transactions_user ON transactions(user_id);
+      CREATE INDEX idx_entries_user_id ON entries(user_id);
+      CREATE INDEX idx_entries_prediction_id ON entries(prediction_id);
+      CREATE INDEX idx_entries_status ON entries(status);
+      CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+      CREATE INDEX idx_transactions_created_at ON transactions(created_at);
     `);
 
     // Insert default platform settings
