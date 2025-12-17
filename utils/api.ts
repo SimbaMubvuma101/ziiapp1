@@ -3,11 +3,13 @@ const isLocalhost = window.location.hostname === 'localhost' || window.location.
 const isReplitDev = window.location.hostname.includes('.repl.co');
 const isReplitProd = window.location.hostname.includes('.replit.app');
 
-// In production or on Replit domains, use relative path (empty string)
+// In production or on Replit domains (including .replit.dev), use relative path (empty string)
 // In local dev, use localhost:5000
 const API_BASE_URL = import.meta.env.VITE_API_URL || (
   (isLocalhost && !import.meta.env.PROD) ? 'http://localhost:5000' : ''
 );
+
+const isProduction = import.meta.env.PROD;
 
 // Log API configuration on load
 console.log('API Configuration:', { 
