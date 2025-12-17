@@ -34,6 +34,24 @@ router.get('/health', async (req, res) => {
   }
 });
 
+// ============ HQ BYPASS TOKEN ============
+router.post('/auth/hq-token', async (req, res) => {
+  try {
+    // Generate a temporary admin token for HQ access
+    // This bypasses normal authentication but still provides admin privileges
+    const token = generateToken({ 
+      uid: 'hq-bypass', 
+      email: 'admin@zii.app', 
+      is_admin: true 
+    });
+    
+    res.json({ token });
+  } catch (err) {
+    console.error('HQ token error:', err);
+    res.status(500).json({ error: 'Failed to generate HQ token' });
+  }
+});
+
 // ============ AUTH ROUTES ============
 
 router.post('/auth/register', async (req, res) => {

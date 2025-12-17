@@ -139,7 +139,18 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   useEffect(() => {
     // Skip auth checks if accessed via HQGuard
     if (bypassAuth) {
-      fetchStats();
+      // Generate a temporary bypass token for API calls
+      const generateBypassToken = async () => {
+        try {
+          const response = await api.post('/auth/hq-token');
+          localStorage.setItem('auth_token', response.token);
+          await fetchStats();
+        } catch (err) {
+          console.error('Failed to generate bypass token:', err);
+        }
+      };
+
+      generateBypassToken();
       return;
     }
 
@@ -756,9 +767,9 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                 <span className="text-[10px] font-bold text-white/40 uppercase">{settingsForm.banner_active ? 'ON' : 'OFF'}</span>
                                 <button
                                     onClick={() => setSettingsForm({...settingsForm, banner_active: !settingsForm.banner_active})}
-                                    className={`w-8 h-4 rounded-full p-0.5 transition-colors ${settingsForm.banner_active ? 'bg-zii-accent' : 'bg-white/10'}`}
+                                    className={`w-12 h-6 rounded-full p-1 transition-colors ${settingsForm.banner_active ? 'bg-zii-accent' : 'bg-white/10'}`}
                                 >
-                                    <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${settingsForm.banner_active ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.banner_active ? 'translate-x-6' : 'translate-x-0'}`}></div>
                                 </button>
                             </div>
                         </div>
