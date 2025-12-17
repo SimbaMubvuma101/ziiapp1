@@ -30,9 +30,14 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     'Content-Type': 'application/json',
   };
 
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  const getAuthToken = () => {
+  // Check both storage locations for auth token
+  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+  console.log('🔑 Auth Token Retrieved:', token ? 'Present' : 'Missing');
+  return token;
+};
+  if (getAuthToken()) {
+    defaultHeaders['Authorization'] = `Bearer ${getAuthToken()}`;
   }
 
   const response = await fetch(url, {

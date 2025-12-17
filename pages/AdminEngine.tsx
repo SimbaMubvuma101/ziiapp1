@@ -142,11 +142,29 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       // Generate a temporary bypass token for API calls
       const generateBypassToken = async () => {
         try {
-          const response = await api.post('/auth/hq-token');
-          localStorage.setItem('auth_token', response.token);
-          await fetchStats();
+          console.log('🔐 Generating HQ bypass token...');
+          const response = await fetch('/api/auth/hq-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Token generation failed: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('✅ HQ bypass token received');
+          
+          localStorage.setItem('auth_token', data.token);
+          sessionStorage.setItem('auth_token', data.token);
+          
+          // Wait a moment for storage to persist
+          setTimeout(() => {
+            fetchStats();
+          }, 100);
         } catch (err) {
-          console.error('Failed to generate bypass token:', err);
+          console.error('❌ Failed to generate bypass token:', err);
+          setStatusMsg('Failed to generate HQ access token. Please refresh and try again.');
         }
       };
 
