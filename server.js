@@ -11,15 +11,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = parseInt(process.env.PORT) || (process.env.REPL_DEPLOYMENT ? 5000 : 3001);
+const PORT = parseInt(process.env.PORT) || 5000;
 
-// CORS configuration
+// CORS configuration - allow all origins in production
 app.use(cors({
-  origin: '*',
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -163,6 +166,17 @@ if (fs.existsSync(distPath)) {
   console.warn('Warning: dist directory not found. Static files will not be served.');
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Zii App Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Deployment: ${process.env.REPL_DEPLOYMENT ? 'Yes' : 'No'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    pool.end();
+  });
 });

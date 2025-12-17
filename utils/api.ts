@@ -1,5 +1,5 @@
-// Use environment variable or fallback to relative path
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Use relative path for API calls - works in both dev and production
+const API_BASE = '/api';
 
 interface ApiResponse<T = any> {
   data?: T;

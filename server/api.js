@@ -20,7 +20,7 @@ router.post('/auth/register', async (req, res) => {
   try {
     const { name, email, password, phone, referralCode, affiliateId, country } = req.body;
 
-    console.log('Registration attempt:', { name, email, phone, country });
+    console.log('Registration attempt:', { name, email, phone, country, hasPassword: !!password });
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -80,6 +80,8 @@ router.post('/auth/register', async (req, res) => {
 router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    console.log('Login attempt:', { email, hasPassword: !!password });
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
