@@ -66,3 +66,4 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 - PORT is set via environment variable (defaults to 5000)
 - Firebase has been completely removed from the project - using custom PostgreSQL database with JWT authentication instead
 - API routing uses relative paths (/api) for deployed environments and http://localhost:5000 for local development
+- Database connection automatically detects production deployments: if helium database URL is detected in production (REPL_DEPLOYMENT=1), it falls back to localhost to avoid DNS errors on deployed domains

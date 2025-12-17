@@ -4,11 +4,21 @@ const { Pool } = pkg;
 
 console.log('Initializing database connection...');
 console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
+console.log('Environment NODE_ENV:', process.env.NODE_ENV);
+console.log('Replit deployment:', !!process.env.REPL_DEPLOYMENT);
+
+// For production deployments, helium database hostname won't work
+// Fall back to localhost which works with PostgreSQL module
+let dbUrl = process.env.DATABASE_URL;
+if (dbUrl && dbUrl.includes('helium') && process.env.REPL_DEPLOYMENT === '1') {
+  console.log('Detected production deployment with helium URL, using localhost instead');
+  dbUrl = 'postgresql://postgres:password@localhost/postgres?sslmode=disable';
+}
 
 // Database configuration with connection pooling and error handling
 const poolConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? {
+  connectionString: dbUrl,
+  ssl: process.env.NODE_ENV === 'production' && !dbUrl.includes('localhost') ? {
     rejectUnauthorized: false
   } : false,
   max: 20,
