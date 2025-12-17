@@ -17,9 +17,13 @@ export const HQGuard: React.FC<HQGuardProps> = ({ children }) => {
 
   useEffect(() => {
     // Check if already authorized in this session
-    const authorized = sessionStorage.getItem('hq_authorized');
-    if (authorized === 'true') {
-      setIsAuthorized(true);
+    try {
+      const authorized = sessionStorage.getItem('hq_authorized');
+      if (authorized === 'true') {
+        setIsAuthorized(true);
+      }
+    } catch (err) {
+      console.warn('Session storage access failed:', err);
     }
     setLoading(false);
   }, []);
