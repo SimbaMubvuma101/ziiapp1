@@ -1,317 +1,167 @@
-// Detect if we're in production deployment or development
+// Detect environment
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// Use relative path (same origin) for any non-localhost environment
-// This works for deployed sites, Replit, or any domain where frontend and backend are on the same origin
-const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '/api';
+// For localhost development, use full URL
+// For deployed/production (including Replit), use empty string (same origin)
+const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '';
 
 // Log API configuration on load
 console.log('API Configuration:', { 
   hostname: window.location.hostname,
   isLocalhost,
-  apiBase: API_BASE_URL 
+  apiBase: API_BASE_URL,
+  fullUrl: isLocalhost ? API_BASE_URL : window.location.origin
 });
 
-interface ApiResponse<T = any> {
-  data?: T;
-  error?: string;
+async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_BASE_URL}/api${endpoint}`;
+
+  const defaultHeaders: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
 }
 
-class ApiClient {
-  private token: string | null = null;
-  private baseUrl: string = API_BASE_URL; // Added baseUrl property
+export const api = {
+  // Auth endpoints
+  login: (email: string, password: string) =>
+    fetchAPI('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
 
-  constructor() {
-    this.token = localStorage.getItem('auth_token');
-  }
+  register: (data: { name: string; email: string; password: string; phone?: string; referralCode?: string; affiliateId?: string; country?: string }) =>
+    fetchAPI('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
-  setToken(token: string) {
-    this.token = token;
-    localStorage.setItem('auth_token', token);
-  }
+  getCurrentUser: () => fetchAPI('/auth/me'),
 
-  clearToken() {
-    this.token = null;
-    localStorage.removeItem('auth_token');
-  }
-
-  private getHeaders(): HeadersInit { // Helper method to get headers
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    return headers;
-  }
-
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...options,
-        headers,
-      });
-
-      const contentType = response.headers.get('content-type');
-
-      // Check if response is JSON
-      if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || `Request failed with status ${response.status}`);
-        }
-
-        return data;
-      } else {
-        // Handle non-JSON responses
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
-        throw new Error(`Server error: ${response.status} - ${text.substring(0, 100)}`);
-      }
-    } catch (err) {
-      if (err instanceof Error) {
-        throw err;
-      }
-      throw new Error('Network error - please check your connection');
-    }
-  }
-
-  // Auth
-  async register(userData: {
-    name: string;
-    email: string;
-    password: string;
-    phone?: string;
-    referralCode?: string;
-    affiliateId?: string;
-    country?: string;
-  }) {
-    try {
-      console.log('Registering user:', userData.email);
-      console.log('API URL:', `${this.baseUrl}/auth/register`);
-      const response = await this.request<{ token: string; user: any }>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(userData),
-      });
-      console.log('Registration successful, token received');
-      this.setToken(response.token);
-      return response;
-    } catch (err) {
-      console.error('Registration API error:', err);
-      console.error('Full error details:', {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        stack: err instanceof Error ? err.stack : undefined
-      });
-      throw err;
-    }
-  }
-
-  async login(email: string, password: string) {
-    try {
-      console.log('Login attempt:', email);
-      console.log('API URL:', `${this.baseUrl}/auth/login`);
-      const response = await this.request<{ token: string; user: any }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      console.log('Login successful, token received');
-      this.setToken(response.token);
-      return response;
-    } catch (err) {
-      console.error('Login API error:', err);
-      console.error('Full error details:', {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        stack: err instanceof Error ? err.stack : undefined
-      });
-      throw err;
-    }
-  }
-
-  async getCurrentUser() {
-    return this.request<any>('/auth/me');
-  }
-
-  async updateProfile(updates: { name?: string; phone?: string; country?: string }) {
-    return this.request('/auth/profile', {
+  updateProfile: (data: { name?: string; phone?: string; country?: string }) =>
+    fetchAPI('/auth/profile', {
       method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-  }
+      body: JSON.stringify(data),
+    }),
 
-  // Predictions
-  async getPredictions(filters: {
-    status?: string;
-    category?: string;
-    country?: string;
-    creatorId?: string;
-    eventId?: string;
-  } = {}) {
-    const params = new URLSearchParams(filters as any);
-    return this.request<any[]>(`/predictions?${params}`);
-  }
-
-  async createPrediction(predictionData: any) {
-    return this.request('/predictions', {
-      method: 'POST',
-      body: JSON.stringify(predictionData),
-    });
-  }
-
-  async resolvePrediction(id: string, winning_option_id: string) {
-    return this.request(`/predictions/${id}/resolve`, {
-      method: 'POST',
-      body: JSON.stringify({ winning_option_id }),
-    });
-  }
-
-  async deletePrediction(id: string) {
-    return this.request(`/predictions/${id}`, {
+  deleteAccount: () =>
+    fetchAPI('/auth/delete-account', {
       method: 'DELETE',
-    });
-  }
+    }),
 
-  // Entries
-  async getEntries(status?: string) {
-    const params = status ? `?status=${status}` : '';
-    return this.request<any[]>(`/entries${params}`);
-  }
+  // Predictions endpoints
+  getPredictions: (params?: { status?: string; category?: string; country?: string; creatorId?: string; eventId?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append('status', params.status);
+    if (params?.category) query.append('category', params.category);
+    if (params?.country) query.append('country', params.country);
+    if (params?.creatorId) query.append('creatorId', params.creatorId);
+    if (params?.eventId) query.append('eventId', params.eventId);
+    return fetchAPI(`/predictions?${query.toString()}`);
+  },
 
-  async placeEntry(entryData: {
-    prediction_id: string;
-    selected_option_id: string;
-    amount: number;
-  }) {
-    return this.request('/entries', {
+  createPrediction: (data: any) =>
+    fetchAPI('/predictions', {
       method: 'POST',
-      body: JSON.stringify(entryData),
-    });
-  }
+      body: JSON.stringify(data),
+    }),
 
-  // Wallet
-  async getBalance() {
-    return this.request<{ balance: number; winnings_balance: number }>('/wallet/balance');
-  }
+  resolvePrediction: (id: string, winningOptionId: string) =>
+    fetchAPI(`/predictions/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ winning_option_id: winningOptionId }),
+    }),
 
-  async getTransactions() {
-    return this.request<any[]>('/transactions');
-  }
+  deletePrediction: (id: string) =>
+    fetchAPI(`/predictions/${id}`, {
+      method: 'DELETE',
+    }),
 
-  async redeemVoucher(code: string) {
-    return this.request('/wallet/redeem', {
+  // Entries endpoints
+  getEntries: (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    return fetchAPI(`/entries${query}`);
+  },
+
+  placeEntry: (data: { prediction_id: string; selected_option_id: string; amount: number }) =>
+    fetchAPI('/entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Wallet endpoints
+  getBalance: () => fetchAPI('/wallet/balance'),
+
+  getTransactions: () => fetchAPI('/transactions'),
+
+  redeemVoucher: (code: string) =>
+    fetchAPI('/wallet/redeem', {
       method: 'POST',
       body: JSON.stringify({ code }),
-    });
-  }
+    }),
 
-  async createVoucher(amount: number) {
-    return this.request<{ code: string; amount: number }>('/admin/vouchers', {
+  cashout: (data: { amount: number; phone: string; method: string }) =>
+    fetchAPI('/wallet/cashout', {
       method: 'POST',
-      body: JSON.stringify({ amount }),
-    });
-  }
+      body: JSON.stringify(data),
+    }),
 
-  // Settings
-  async getSettings() {
-    return this.request('/settings');
-  }
+  // Admin endpoints
+  getAdminStats: () => fetchAPI('/admin/stats'),
 
-  async updateSettings(settings: any) {
-    return this.request('/settings', {
+  getAnalytics: () => fetchAPI('/admin/analytics'),
+
+  getSettings: () => fetchAPI('/settings'),
+
+  updateSettings: (data: any) =>
+    fetchAPI('/settings', {
       method: 'PUT',
-      body: JSON.stringify(settings),
-    });
-  }
+      body: JSON.stringify(data),
+    }),
 
-  // Admin
-  async getAdminStats() {
-    return this.request('/admin/stats');
-  }
+  // Creator invites
+  getCreatorInvites: () => fetchAPI('/admin/creator-invites'),
 
-  async getAnalytics() {
-    return this.request('/admin/analytics');
-  }
-
-  async getAffiliates() {
-    return this.request<any[]>('/admin/affiliates');
-  }
-
-  async createAffiliate(data: { name: string; code: string }) {
-    return this.request('/admin/affiliates', {
+  createCreatorInvite: (data: { name: string; country: string }) =>
+    fetchAPI('/admin/creator-invites', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  }
+    }),
 
-  async getCreatorInvites() {
-    return this.request<any[]>('/admin/creator-invites');
-  }
+  revokeCreatorInvite: (id: string) =>
+    fetchAPI(`/admin/creator-invites/${id}/revoke`, {
+      method: 'POST',
+    }),
 
-  async createCreatorInvite(data: { name: string; country: string }) {
-    return this.request('/admin/creator-invites', {
+  validateCreatorInvite: (code: string) =>
+    fetchAPI(`/creator-invites/validate/${code}`),
+
+  claimCreatorInvite: (data: { code: string; email: string; password: string }) =>
+    fetchAPI('/creator-invites/claim', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  }
+    }),
 
-  async revokeCreatorInvite(inviteId: string) {
-    return this.request(`/admin/creator-invites/${inviteId}/revoke`, {
-      method: 'POST',
-    });
-  }
-
-  async validateCreatorInvite(code: string) {
-    return this.request(`/creator-invites/validate/${code}`);
-  }
-
-  // Updated claimCreatorInvite to accept credentials and handle login
-  async claimCreatorInvite(code: string, email: string, password: string): Promise<{ token: string; user: any }> {
-    const response = await fetch(`${this.baseUrl}/creator-invites/claim`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ code, email, password })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to claim invite');
-    }
-
-    const data = await response.json();
-
-    // Store the token
-    if (data.token) {
-      this.setToken(data.token);
-    }
-
-    return data;
-  }
-
-  // Stripe/Payment endpoints
-  async createCheckoutSession(amount: number) {
-    return this.request('/stripe/create-checkout-session', {
-      method: 'POST',
-      body: JSON.stringify({ amount }),
-    });
-  }
-
-  async requestCashout(data: { amount: number; phone: string; method: string }) {
-    return this.request('/wallet/cashout', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-}
-
-export const api = new ApiClient();
+  // Affiliate validation
+  validateAffiliate: (code: string) =>
+    fetchAPI(`/affiliates/validate?code=${code}`),
+};

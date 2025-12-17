@@ -1,3 +1,4 @@
+
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -10,9 +11,9 @@ const poolConfig = {
   ssl: process.env.NODE_ENV === 'production' ? {
     rejectUnauthorized: false
   } : false,
-  max: 20, // maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // return an error after 10 seconds if connection can't be established
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 };
 
 export const pool = new Pool(poolConfig);
@@ -22,14 +23,14 @@ pool.on('error', (err) => {
   console.error('Unexpected database pool error:', err);
 });
 
-// Test connection on startup with retry logic
+// Test connection on startup
 async function testConnection(retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
-      await client.query('SELECT NOW()');
+      const result = await client.query('SELECT NOW()');
       client.release();
-      console.log('Database connection test SUCCESSFUL');
+      console.log('Database connection successful:', result.rows[0]);
       return true;
     } catch (err) {
       console.error(`Database connection attempt ${i + 1} failed:`, err.message);
@@ -43,24 +44,29 @@ async function testConnection(retries = 3) {
   return false;
 }
 
-// Run connection test
 testConnection();
 
 // Initialize database schema
 export async function initDatabase() {
-  // Test connection first
-  try {
-    const testResult = await pool.query('SELECT NOW()');
-    console.log('Database connection successful:', testResult.rows[0]);
-  } catch (err) {
-    console.error('Database connection failed:', err.message);
-    throw err;
-  }
-
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
+    // Drop all tables if they exist (clean slate)
     await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      DROP TABLE IF EXISTS transactions CASCADE;
+      DROP TABLE IF EXISTS entries CASCADE;
+      DROP TABLE IF EXISTS vouchers CASCADE;
+      DROP TABLE IF EXISTS creator_invites CASCADE;
+      DROP TABLE IF EXISTS affiliates CASCADE;
+      DROP TABLE IF EXISTS platform_settings CASCADE;
+      DROP TABLE IF EXISTS predictions CASCADE;
+      DROP TABLE IF EXISTS users CASCADE;
+    `);
+
+    // Create users table
+    await client.query(`
+      CREATE TABLE users (
         uid VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -82,11 +88,14 @@ export async function initDatabase() {
         creator_country VARCHAR(2),
         total_events_created INTEGER DEFAULT 0,
         total_commission_earned DECIMAL(10, 2) DEFAULT 0,
-        email_verified BOOLEAN DEFAULT false,
+        email_verified BOOLEAN DEFAULT true,
         verification_token VARCHAR(255)
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS predictions (
+    // Create predictions table
+    await client.query(`
+      CREATE TABLE predictions (
         id VARCHAR(255) PRIMARY KEY,
         question TEXT NOT NULL,
         category VARCHAR(100),
@@ -105,32 +114,41 @@ export async function initDatabase() {
         creator_share DECIMAL(10, 2) DEFAULT 0,
         winning_option_id VARCHAR(255),
         options JSONB
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS entries (
+    // Create entries table
+    await client.query(`
+      CREATE TABLE entries (
         id VARCHAR(255) PRIMARY KEY,
-        user_id VARCHAR(255) REFERENCES users(uid),
-        prediction_id VARCHAR(255) REFERENCES predictions(id),
+        user_id VARCHAR(255) NOT NULL REFERENCES users(uid),
+        prediction_id VARCHAR(255) NOT NULL REFERENCES predictions(id),
         selected_option_id VARCHAR(255),
         amount DECIMAL(10, 2) NOT NULL,
         potential_payout DECIMAL(10, 2),
         status VARCHAR(50) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         celebrated BOOLEAN DEFAULT false
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS transactions (
+    // Create transactions table
+    await client.query(`
+      CREATE TABLE transactions (
         id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255) REFERENCES users(uid),
+        user_id VARCHAR(255) NOT NULL REFERENCES users(uid),
         type VARCHAR(50) NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
         description TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         payment_method VARCHAR(50),
         stripe_session_id VARCHAR(255)
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS vouchers (
+    // Create vouchers table
+    await client.query(`
+      CREATE TABLE vouchers (
         id SERIAL PRIMARY KEY,
         code VARCHAR(50) UNIQUE NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
@@ -139,9 +157,12 @@ export async function initDatabase() {
         created_by VARCHAR(255) REFERENCES users(uid),
         redeemed_by VARCHAR(255) REFERENCES users(uid),
         redeemed_at TIMESTAMP
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS affiliates (
+    // Create affiliates table
+    await client.query(`
+      CREATE TABLE affiliates (
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         code VARCHAR(50) UNIQUE NOT NULL,
@@ -149,9 +170,12 @@ export async function initDatabase() {
         commission_owed DECIMAL(10, 2) DEFAULT 0,
         active_users_count INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS creator_invites (
+    // Create creator_invites table
+    await client.query(`
+      CREATE TABLE creator_invites (
         id SERIAL PRIMARY KEY,
         code VARCHAR(100) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -161,9 +185,12 @@ export async function initDatabase() {
         claimed_by VARCHAR(255) REFERENCES users(uid),
         claimed_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
+    `);
 
-      CREATE TABLE IF NOT EXISTS platform_settings (
+    // Create platform_settings table
+    await client.query(`
+      CREATE TABLE platform_settings (
         id INTEGER PRIMARY KEY DEFAULT 1,
         maintenance_mode BOOLEAN DEFAULT false,
         welcome_bonus DECIMAL(10, 2) DEFAULT 100,
@@ -172,28 +199,29 @@ export async function initDatabase() {
         banner_message TEXT DEFAULT 'Welcome to Zii!',
         banner_active BOOLEAN DEFAULT false,
         CHECK (id = 1)
-      );
-
-      CREATE TABLE IF NOT EXISTS creator_invites (
-        id VARCHAR(255) PRIMARY KEY,
-        code VARCHAR(50) UNIQUE NOT NULL,
-        creator_name VARCHAR(255) NOT NULL,
-        country VARCHAR(2),
-        status VARCHAR(50) DEFAULT 'active',
-        claimed_by VARCHAR(255) REFERENCES users(uid),
-        claimed_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
-      CREATE INDEX IF NOT EXISTS idx_predictions_creator ON predictions(created_by_creator);
-      CREATE INDEX IF NOT EXISTS idx_entries_user ON entries(user_id);
-      CREATE INDEX IF NOT EXISTS idx_entries_prediction ON entries(prediction_id);
-      CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
-
-      INSERT INTO platform_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+      )
     `);
+
+    // Create indexes for better performance
+    await client.query(`
+      CREATE INDEX idx_predictions_status ON predictions(status);
+      CREATE INDEX idx_predictions_creator ON predictions(created_by_creator);
+      CREATE INDEX idx_entries_user ON entries(user_id);
+      CREATE INDEX idx_entries_prediction ON entries(prediction_id);
+      CREATE INDEX idx_transactions_user ON transactions(user_id);
+    `);
+
+    // Insert default platform settings
+    await client.query(`
+      INSERT INTO platform_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING
+    `);
+
+    await client.query('COMMIT');
     console.log('Database schema initialized');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Database initialization error:', err);
+    throw err;
   } finally {
     client.release();
   }
