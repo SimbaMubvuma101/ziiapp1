@@ -1,8 +1,7 @@
 // Detect environment
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isReplitDomain = window.location.hostname.includes('.replit.dev') || 
-                       window.location.hostname.includes('.repl.co') || 
-                       window.location.hostname.includes('.replit.app');
+const isReplitDomain = window.location.hostname.includes('replit') || 
+                       window.location.hostname.includes('repl.');
 
 // For localhost development, use full URL with port
 // For all Replit domains and production, use empty string (same origin - server handles both frontend and API)
