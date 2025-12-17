@@ -33,7 +33,7 @@ const App: React.FC = () => {
           } />
           <Route path="/hq" element={
             <HQGuard>
-              <AdminEngine />
+              <AdminEngine bypassAuth={true} />
             </HQGuard>
           } />
 

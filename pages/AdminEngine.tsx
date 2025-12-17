@@ -9,7 +9,11 @@ import { calculateAMMOdds } from '../utils/amm';
 import { SUPPORTED_COUNTRIES } from '../constants';
 import { api } from '../utils/api';
 
-export const AdminEngine: React.FC = () => {
+interface AdminEngineProps {
+  bypassAuth?: boolean;
+}
+
+export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) => {
   const { isAdmin, logout, currentUser, userProfile, platformSettings, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -133,6 +137,12 @@ export const AdminEngine: React.FC = () => {
 
   // 1. Redirect if not authorized locally
   useEffect(() => {
+    // Skip auth checks if accessed via HQGuard
+    if (bypassAuth) {
+      fetchStats();
+      return;
+    }
+
     // Wait for auth to load before checking
     if (authLoading) return;
     
@@ -145,7 +155,7 @@ export const AdminEngine: React.FC = () => {
     if (isAdmin) {
         fetchStats();
     }
-  }, [isAdmin, navigate, authLoading, currentUser]);
+  }, [isAdmin, navigate, authLoading, currentUser, bypassAuth]);
 
   // Sync Local Settings Form with Context
   useEffect(() => {
@@ -619,7 +629,7 @@ export const AdminEngine: React.FC = () => {
   );
 
   // Show loader while auth is loading or checking admin status
-  if (authLoading || !currentUser) {
+  if (!bypassAuth && (authLoading || !currentUser)) {
     return (
       <div className="min-h-screen bg-zii-bg flex items-center justify-center">
         <Loader size={50} className="text-zii-accent" />
@@ -628,7 +638,7 @@ export const AdminEngine: React.FC = () => {
   }
 
   // If we have a user but they're not admin, return null (redirect will happen in useEffect)
-  if (!isAdmin) return null;
+  if (!bypassAuth && !isAdmin) return null;
 
   // Aggregate Partner Stats
   const totalAffiliateVolume = affiliates.reduce((sum, a) => sum + (a.total_volume || 0), 0);
