@@ -30,7 +30,7 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     'Content-Type': 'application/json',
   };
 
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('auth_token');
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -53,17 +53,27 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 
 export const api = {
   // Auth endpoints
-  login: (email: string, password: string) =>
-    fetchAPI('/auth/login', {
+  login: async (email: string, password: string) => {
+    const response = await fetchAPI('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    }),
+    });
+    if (response.token) {
+      localStorage.setItem('auth_token', response.token);
+    }
+    return response;
+  },
 
-  register: (data: { name: string; email: string; password: string; phone?: string; referralCode?: string; affiliateId?: string; country?: string }) =>
-    fetchAPI('/auth/register', {
+  register: async (data: { name: string; email: string; password: string; phone?: string; referralCode?: string; affiliateId?: string; country?: string }) => {
+    const response = await fetchAPI('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    if (response.token) {
+      localStorage.setItem('auth_token', response.token);
+    }
+    return response;
+  },
 
   getCurrentUser: () => fetchAPI('/auth/me'),
 
@@ -77,6 +87,10 @@ export const api = {
     fetchAPI('/auth/delete-account', {
       method: 'DELETE',
     }),
+
+  clearToken: () => {
+    localStorage.removeItem('auth_token');
+  },
 
   // Predictions endpoints
   getPredictions: (params?: { status?: string; category?: string; country?: string; creatorId?: string; eventId?: string }) => {
