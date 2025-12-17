@@ -106,8 +106,23 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Add request logging middleware
+app.use('/api', (req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
 // Mount API routes
 app.use('/api', apiRouter);
+
+// Add error handling middleware
+app.use('/api', (err, req, res, next) => {
+  console.error('API Error:', err);
+  res.status(500).json({ 
+    error: err.message || 'Internal server error',
+    path: req.path 
+  });
+});
 
 // Create Stripe checkout session
 app.post('/api/create-checkout-session', async (req, res) => {

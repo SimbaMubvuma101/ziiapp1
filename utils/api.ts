@@ -1,12 +1,17 @@
 // Detect if we're in production or development
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('replit.dev');
-const API_BASE = '/api';
+// Detect if we're in production deployment or development
+const isProduction = window.location.hostname.includes('replit.app') || 
+                     window.location.hostname.includes('repl.co');
+
+const API_BASE_URL = isProduction ? '/api' : 'http://localhost:5000/api';
 
 // Log API configuration on load
 console.log('API Configuration:', { 
   hostname: window.location.hostname,
   isDevelopment,
-  apiBase: API_BASE 
+  isProduction,
+  apiBase: API_BASE_URL 
 });
 
 interface ApiResponse<T = any> {
@@ -16,7 +21,7 @@ interface ApiResponse<T = any> {
 
 class ApiClient {
   private token: string | null = null;
-  private baseUrl: string = API_BASE; // Added baseUrl property
+  private baseUrl: string = API_BASE_URL; // Added baseUrl property
 
   constructor() {
     this.token = localStorage.getItem('auth_token');
@@ -53,7 +58,7 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers,
       });
@@ -95,7 +100,7 @@ class ApiClient {
   }) {
     try {
       console.log('Registering user:', userData.email);
-      console.log('API URL:', `${API_BASE}/auth/register`);
+      console.log('API URL:', `${this.baseUrl}/auth/register`);
       const response = await this.request<{ token: string; user: any }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(userData),
@@ -116,7 +121,7 @@ class ApiClient {
   async login(email: string, password: string) {
     try {
       console.log('Login attempt:', email);
-      console.log('API URL:', `${API_BASE}/auth/login`);
+      console.log('API URL:', `${this.baseUrl}/auth/login`);
       const response = await this.request<{ token: string; user: any }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
@@ -297,7 +302,7 @@ class ApiClient {
 
   // Stripe/Payment endpoints
   async createCheckoutSession(amount: number) {
-    return this.request<{ url: string }>('/stripe/create-checkout-session', {
+    return this.request('/stripe/create-checkout-session', {
       method: 'POST',
       body: JSON.stringify({ amount }),
     });

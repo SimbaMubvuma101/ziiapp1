@@ -1,4 +1,3 @@
-
 import express from 'express';
 import crypto from 'crypto';
 import { pool } from './db.js';
@@ -38,8 +37,8 @@ router.get('/health', async (req, res) => {
 // ============ AUTH ROUTES ============
 
 router.post('/auth/register', async (req, res) => {
-  const client = await pool.connect();
   try {
+    console.log('Registration attempt:', { email: req.body.email, hasPassword: !!req.body.password });
     const { name, email, password, phone, referralCode, affiliateId, country } = req.body;
 
     console.log('Registration attempt:', { name, email, phone, country, hasPassword: !!password });
@@ -49,7 +48,7 @@ router.post('/auth/register', async (req, res) => {
     }
 
     // Check if user exists
-    const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: 'Email already registered' });
     }
@@ -58,35 +57,35 @@ router.post('/auth/register', async (req, res) => {
     const passwordHash = await hashPassword(password);
     const verificationToken = generateVerificationToken();
 
-    await client.query('BEGIN');
+    await pool.query('BEGIN');
 
     // Get platform settings for welcome bonus
-    const settingsResult = await client.query('SELECT welcome_bonus FROM platform_settings WHERE id = 1');
+    const settingsResult = await pool.query('SELECT welcome_bonus FROM platform_settings WHERE id = 1');
     const welcomeBonus = settingsResult.rows[0]?.welcome_bonus || 100;
 
     // Create user with country
-    await client.query(
+    await pool.query(
       `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, affiliate_id, referred_by, country)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, affiliateId || null, referralCode || null, country || 'ZW']
     );
 
     // Create welcome transaction
-    await client.query(
+    await pool.query(
       `INSERT INTO transactions (user_id, type, amount, description)
        VALUES ($1, 'deposit', $2, 'Welcome Bonus')`,
       [uid, welcomeBonus]
     );
 
-    await client.query('COMMIT');
+    await pool.query('COMMIT');
 
     const token = generateToken({ uid, email, is_admin: email === 'admin@zii.app' });
-    
+
     console.log('Registration successful:', uid);
-    
+
     res.status(200).json({ token, user: { uid, name, email, balance: welcomeBonus, country: country || 'ZW' } });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
+    await pool.query('ROLLBACK').catch(() => {});
     console.error('Registration error:', err);
     console.error('Error details:', {
       message: err.message,
@@ -94,13 +93,12 @@ router.post('/auth/register', async (req, res) => {
       code: err.code
     });
     res.status(500).json({ error: err.message || 'Registration failed' });
-  } finally {
-    client.release();
   }
 });
 
 router.post('/auth/login', async (req, res) => {
   try {
+    console.log('Login attempt:', { email: req.body.email, hasPassword: !!req.body.password });
     const { email, password } = req.body;
 
     console.log('Login attempt:', { email, hasPassword: !!password });
@@ -119,7 +117,7 @@ router.post('/auth/login', async (req, res) => {
 
     const token = generateToken({ ...user, is_admin: user.email === 'admin@zii.app' });
     const { password_hash, verification_token, ...userData } = user;
-    
+
     res.json({ token, user: userData });
   } catch (err) {
     console.error('Login error:', err);
@@ -133,7 +131,7 @@ router.get('/auth/me', authenticateMiddleware, async (req, res) => {
       'SELECT * FROM users WHERE uid = $1',
       [req.user.uid]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -151,7 +149,7 @@ router.get('/auth/me', authenticateMiddleware, async (req, res) => {
 router.get('/predictions', async (req, res) => {
   try {
     const { status = 'open', category, country, creatorId, eventId } = req.query;
-    
+
     let query = 'SELECT * FROM predictions WHERE 1=1';
     const params = [];
     let paramIndex = 1;
@@ -196,7 +194,7 @@ router.post('/predictions', authenticateMiddleware, async (req, res) => {
     await client.query('BEGIN');
 
     const predictionId = uuidv4();
-    
+
     // Get creator info
     const userResult = await client.query('SELECT creator_name FROM users WHERE uid = $1', [req.user.uid]);
     const creatorName = userResult.rows[0]?.creator_name;
@@ -281,7 +279,7 @@ router.post('/predictions/:id/resolve', authenticateMiddleware, adminMiddleware,
     // Process winners
     for (const entry of winners) {
       const actualPayout = parseFloat(entry.amount) * payoutRatio;
-      
+
       await client.query(
         'UPDATE entries SET status = $1, potential_payout = $2 WHERE id = $3',
         ['won', actualPayout, entry.id]
@@ -353,7 +351,7 @@ router.delete('/predictions/:id', authenticateMiddleware, adminMiddleware, async
 router.get('/entries', authenticateMiddleware, async (req, res) => {
   try {
     const { status } = req.query;
-    
+
     let query = 'SELECT e.*, p.question, p.status as prediction_status, p.options FROM entries e JOIN predictions p ON e.prediction_id = p.id WHERE e.user_id = $1';
     const params = [req.user.uid];
 
@@ -522,11 +520,11 @@ router.get('/admin/analytics', authenticateMiddleware, adminMiddleware, async (r
       SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'cashout'
     `);
     const txCount = await pool.query('SELECT COUNT(*) as count FROM transactions');
-    
+
     // Get fee calculations (5% entry, 10% cashout)
     const entryFees = parseFloat(entryVolume.rows[0].total) * 0.05;
     const cashoutFees = parseFloat(cashoutVolume.rows[0].total) * 0.10;
-    
+
     // Time-based volume calculations
     const volumeToday = await pool.query(`
       SELECT COALESCE(SUM(amount), 0) as total FROM transactions 
@@ -540,15 +538,15 @@ router.get('/admin/analytics', authenticateMiddleware, adminMiddleware, async (r
       SELECT COALESCE(SUM(amount), 0) as total FROM transactions 
       WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)
     `);
-    
+
     // Revenue calculations
     const revenueToday = parseFloat(volumeToday.rows[0].total) * 0.05;
     const revenueWeek = parseFloat(volumeWeek.rows[0].total) * 0.05;
     const revenueMonth = parseFloat(volumeMonth.rows[0].total) * 0.05;
-    
+
     const totalVolume = parseFloat(entryVolume.rows[0].total) + parseFloat(cashoutVolume.rows[0].total);
     const totalRevenue = entryFees + cashoutFees;
-    
+
     res.json({
       totalRevenue,
       entryFees,
@@ -584,7 +582,7 @@ router.get('/settings', async (req, res) => {
 router.put('/settings', authenticateMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { maintenance_mode, welcome_bonus, referral_bonus, min_cashout, banner_message, banner_active } = req.body;
-    
+
     await pool.query(
       `UPDATE platform_settings SET 
        maintenance_mode = $1, welcome_bonus = $2, referral_bonus = $3,
@@ -616,7 +614,7 @@ router.post('/admin/creator-invites', authenticateMiddleware, adminMiddleware, a
   try {
     const { name, country } = req.body;
     const code = `CREATOR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    
+
     const result = await pool.query(
       `INSERT INTO creator_invites (code, name, country, status, created_by)
        VALUES ($1, $2, $3, 'active', $4) RETURNING *`,
@@ -649,7 +647,7 @@ router.get('/creator-invites/validate/:code', async (req, res) => {
       'SELECT * FROM creator_invites WHERE code = $1 AND status = $2',
       [req.params.code, 'active']
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Invite not found or expired' });
     }
@@ -694,7 +692,7 @@ router.post('/creator-invites/claim', async (req, res) => {
     if (existingUser.rows.length > 0) {
       // User exists, just upgrade them to creator
       userId = existingUser.rows[0].uid;
-      
+
       await client.query(
         `UPDATE users SET 
          is_creator = true, 
@@ -801,10 +799,10 @@ router.delete('/auth/delete-account', authenticateMiddleware, async (req, res) =
 
     // Delete user's entries
     await client.query('DELETE FROM entries WHERE user_id = $1', [req.user.uid]);
-    
+
     // Delete user's transactions
     await client.query('DELETE FROM transactions WHERE user_id = $1', [req.user.uid]);
-    
+
     // Delete user
     await client.query('DELETE FROM users WHERE uid = $1', [req.user.uid]);
 
@@ -824,7 +822,7 @@ router.delete('/auth/delete-account', authenticateMiddleware, async (req, res) =
 router.get('/affiliates/validate', async (req, res) => {
   try {
     const { code } = req.query;
-    
+
     if (!code) {
       return res.status(400).json({ error: 'Code is required' });
     }

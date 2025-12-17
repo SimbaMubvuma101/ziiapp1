@@ -1,13 +1,21 @@
-
 import pkg from 'pg';
 const { Pool } = pkg;
 
+console.log('Initializing database connection...');
+console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('neon') ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+});
+
+// Test the connection immediately
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Database connection test FAILED:', err.message);
+  } else {
+    console.log('Database connection test SUCCESSFUL:', res.rows[0]);
+  }
 });
 
 // Handle pool errors
