@@ -1,5 +1,6 @@
 
 import express from 'express';
+import crypto from 'crypto';
 import { pool } from './db.js';
 import { 
   hashPassword, 
@@ -12,6 +13,27 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
+
+// ============ HEALTH CHECK ============
+router.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    await pool.query('SELECT NOW()');
+    res.json({ 
+      status: 'ok', 
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      deployment: process.env.REPL_DEPLOYMENT ? 'production' : 'development'
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      status: 'error', 
+      database: 'disconnected',
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+  }
+});
 
 // ============ AUTH ROUTES ============
 
@@ -685,7 +707,7 @@ router.post('/creator-invites/claim', async (req, res) => {
       );
     } else {
       // Create new user account
-      userId = crypto.randomUUID();
+      userId = uuidv4();
       const hashedPassword = await hashPassword(password);
 
       await client.query(

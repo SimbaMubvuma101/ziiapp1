@@ -1,5 +1,13 @@
-// Use relative path for API calls - works in both dev and production
+// Detect if we're in production or development
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('replit.dev');
 const API_BASE = '/api';
+
+// Log API configuration on load
+console.log('API Configuration:', { 
+  hostname: window.location.hostname,
+  isDevelopment,
+  apiBase: API_BASE 
+});
 
 interface ApiResponse<T = any> {
   data?: T;
@@ -87,25 +95,43 @@ class ApiClient {
   }) {
     try {
       console.log('Registering user:', userData.email);
+      console.log('API URL:', `${API_BASE}/auth/register`);
       const response = await this.request<{ token: string; user: any }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(userData),
       });
+      console.log('Registration successful, token received');
       this.setToken(response.token);
       return response;
     } catch (err) {
       console.error('Registration API error:', err);
+      console.error('Full error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined
+      });
       throw err;
     }
   }
 
   async login(email: string, password: string) {
-    const response = await this.request<{ token: string; user: any }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    this.setToken(response.token);
-    return response;
+    try {
+      console.log('Login attempt:', email);
+      console.log('API URL:', `${API_BASE}/auth/login`);
+      const response = await this.request<{ token: string; user: any }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      console.log('Login successful, token received');
+      this.setToken(response.token);
+      return response;
+    } catch (err) {
+      console.error('Login API error:', err);
+      console.error('Full error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined
+      });
+      throw err;
+    }
   }
 
   async getCurrentUser() {
