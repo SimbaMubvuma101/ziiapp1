@@ -1,15 +1,13 @@
-// Detect if we're in production or development
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('replit.dev');
 // Detect if we're in production deployment or development
-const isProduction = window.location.hostname.includes('replit.app') || 
-                     window.location.hostname.includes('repl.co');
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isProduction = !isLocalhost;
 
 const API_BASE_URL = isProduction ? '/api' : 'http://localhost:5000/api';
 
 // Log API configuration on load
 console.log('API Configuration:', { 
   hostname: window.location.hostname,
-  isDevelopment,
+  isLocalhost,
   isProduction,
   apiBase: API_BASE_URL 
 });

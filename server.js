@@ -106,23 +106,14 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Add request logging middleware
-app.use('/api', (req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+// Add request logging middleware for all requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Mount API routes
+// Mount API routes FIRST - before static files
 app.use('/api', apiRouter);
-
-// Add error handling middleware
-app.use('/api', (err, req, res, next) => {
-  console.error('API Error:', err);
-  res.status(500).json({ 
-    error: err.message || 'Internal server error',
-    path: req.path 
-  });
-});
 
 // Create Stripe checkout session
 app.post('/api/create-checkout-session', async (req, res) => {
@@ -174,13 +165,22 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-// Serve static files from the dist directory
+// Add error handling middleware for API routes
+app.use('/api', (err, req, res, next) => {
+  console.error('API Error:', err);
+  res.status(500).json({ 
+    error: err.message || 'Internal server error',
+    path: req.path 
+  });
+});
+
+// Serve static files from the dist directory - AFTER API routes
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   console.log('Serving static files from:', distPath);
   app.use(express.static(distPath));
 
-  // Handle SPA routing - must come after API routes
+  // Handle SPA routing - must come LAST
   app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
