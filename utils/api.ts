@@ -1,23 +1,14 @@
 // Detect if we're in production deployment or development
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isReplitDev = window.location.hostname.includes('.repl.co');
-const isReplitProd = window.location.hostname.includes('.replit.app');
 
-// In production or on Replit domains (including .replit.dev), use relative path (empty string)
-// In local dev, use localhost:5000
-const API_BASE_URL = import.meta.env.VITE_API_URL || (
-  (isLocalhost && !import.meta.env.PROD) ? 'http://localhost:5000' : ''
-);
-
-const isProduction = import.meta.env.PROD;
+// Use relative path (same origin) for any non-localhost environment
+// This works for deployed sites, Replit, or any domain where frontend and backend are on the same origin
+const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '/api';
 
 // Log API configuration on load
 console.log('API Configuration:', { 
   hostname: window.location.hostname,
   isLocalhost,
-  isReplitDev,
-  isReplitProd,
-  isProduction,
   apiBase: API_BASE_URL 
 });
 
