@@ -42,6 +42,7 @@ router.post('/auth/hq-token', async (req, res) => {
     const token = generateToken({ 
       uid: 'hq-bypass', 
       email: 'admin@zii.app', 
+      isAdmin: true,
       is_admin: true 
     });
     

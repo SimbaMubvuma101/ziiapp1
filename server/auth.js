@@ -59,15 +59,13 @@ export async function authenticateMiddleware(req, res, next) {
 }
 
 export async function adminMiddleware(req, res, next) {
-  // Allow if user is authenticated and admin
-  if (req.user && (req.user.isAdmin || req.user.email === 'admin@zii.app')) {
+  // Allow HQ bypass tokens
+  if (req.user && req.user.uid === 'hq-bypass') {
     return next();
   }
   
-  // Also allow if no user (HQ bypass mode)
-  if (!req.user) {
-    // Set a mock admin user for HQ access
-    req.user = { uid: 'hq-bypass', email: 'hq@system', isAdmin: true };
+  // Allow if user is authenticated and admin
+  if (req.user && (req.user.isAdmin || req.user.email === 'admin@zii.app')) {
     return next();
   }
   
