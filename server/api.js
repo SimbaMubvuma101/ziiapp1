@@ -208,6 +208,11 @@ router.get('/predictions', async (req, res) => {
 router.post('/predictions', authenticateMiddleware, async (req, res) => {
   const client = await pool.connect();
   try {
+    // Verify user is authenticated
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
     const { question, category, country, type, closes_at, resolution_source, options, liquidity_pool } = req.body;
 
     await client.query('BEGIN');
