@@ -32,11 +32,9 @@ const App: React.FC = () => {
             </ProtectedRoute>
           } />
           <Route path="/hq" element={
-            <ProtectedRoute>
-              <HQGuard>
-                <AdminEngine />
-              </HQGuard>
-            </ProtectedRoute>
+            <HQGuard>
+              <AdminEngine />
+            </HQGuard>
           } />
 
           {/* Creator Routes */}
