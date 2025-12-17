@@ -3,10 +3,12 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { ArrowRight, AlertCircle, UserCheck, Mail, Gift, CheckCircle2 } from 'lucide-react';
 import { Loader } from '../components/Loader';
 import { api } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshUser } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -66,6 +68,12 @@ export const Register: React.FC = () => {
       });
 
       console.log('Registration successful');
+      
+      // Refresh auth context to load the new user
+      await refreshUser();
+      
+      // Small delay to ensure context has updated
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Check for pending event redirect
       const pendingEvent = localStorage.getItem('zii_pending_event');
