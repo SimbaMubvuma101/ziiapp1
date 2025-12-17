@@ -1,7 +1,7 @@
 // Detect environment
 const hostname = window.location.hostname;
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-const isReplitDomain = hostname.includes('replit') || hostname.includes('repl.co');
+const isReplitDomain = hostname.includes('.replit.dev') || hostname.includes('.repl.co');
 
 console.log('🔍 Environment Detection:', {
   hostname,
