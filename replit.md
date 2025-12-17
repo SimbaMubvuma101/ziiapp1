@@ -64,3 +64,5 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 - The build command runs `npm run build` which creates the dist folder
 - The server detects the environment and serves static files from dist/
 - PORT is set via environment variable (defaults to 5000)
+- Firebase has been completely removed from the project - using custom PostgreSQL database with JWT authentication instead
+- API routing uses relative paths (/api) for deployed environments and http://localhost:5000 for local development
