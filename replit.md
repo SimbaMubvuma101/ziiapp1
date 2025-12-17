@@ -56,6 +56,11 @@ Zii is a prediction/betting platform where users can predict outcomes on real da
 - Multi-country support (ZW, ZA, NG, etc.)
 
 ## Running the App
-- Backend: `node server.js` (port 3001)
-- Frontend: `npm run dev` (port 5000)
-- Both must run simultaneously for full functionality
+- Development: Run the "Backend API Server" workflow (serves on port 5000)
+- The server serves both the API and the built frontend (dist folder)
+
+## Deployment Notes
+- Build tools (vite, typescript) are in regular dependencies (not devDependencies) to ensure they're available during production builds
+- The build command runs `npm run build` which creates the dist folder
+- The server detects the environment and serves static files from dist/
+- PORT is set via environment variable (defaults to 5000)

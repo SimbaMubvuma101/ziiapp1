@@ -11,11 +11,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = parseInt(process.env.PORT) || 5000;
+// Use Replit's PORT in deployment, 5000 in dev
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
 
-// CORS configuration - allow all origins in production
+// CORS configuration - allow all origins
 app.use(cors({
-  origin: true,
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -117,9 +118,15 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const baseUrl = process.env.REPL_SLUG 
-      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-      : `http://localhost:${PORT}`;
+    // Detect deployment URL
+    let baseUrl;
+    if (process.env.REPL_DEPLOYMENT === '1') {
+      baseUrl = `https://${process.env.REPL_SLUG}-${process.env.REPL_OWNER}.replit.app`;
+    } else if (process.env.REPL_SLUG) {
+      baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    } else {
+      baseUrl = `http://localhost:${PORT}`;
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -169,7 +176,15 @@ if (fs.existsSync(distPath)) {
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Zii App Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Deployment: ${process.env.REPL_DEPLOYMENT ? 'Yes' : 'No'}`);
+  console.log(`Deployment: ${process.env.REPL_DEPLOYMENT === '1' ? 'Production' : 'Development'}`);
+  console.log(`REPL_SLUG: ${process.env.REPL_SLUG || 'not set'}`);
+  console.log(`REPL_OWNER: ${process.env.REPL_OWNER || 'not set'}`);
+  
+  if (process.env.DATABASE_URL) {
+    console.log(`Database connected: ${process.env.DATABASE_URL.substring(0, 30)}...`);
+  } else {
+    console.warn('WARNING: DATABASE_URL not set!');
+  }
 });
 
 // Graceful shutdown
