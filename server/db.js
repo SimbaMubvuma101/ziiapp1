@@ -15,7 +15,7 @@ const poolConfig = {
   connectionTimeoutMillis: 10000, // return an error after 10 seconds if connection can't be established
 };
 
-const pool = new Pool(poolConfig);
+export const pool = new Pool(poolConfig);
 
 // Handle pool errors
 pool.on('error', (err) => {
