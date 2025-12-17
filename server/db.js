@@ -4,34 +4,47 @@ const { Pool } = pkg;
 console.log('Initializing database connection...');
 console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
 
-export const pool = new Pool({
+// Database configuration with connection pooling and error handling
+const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
-});
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : false,
+  max: 20, // maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // return an error after 10 seconds if connection can't be established
+};
 
-// Test the connection immediately
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Database connection test FAILED:', err.message);
-  } else {
-    console.log('Database connection test SUCCESSFUL:', res.rows[0]);
-  }
-});
+const pool = new Pool(poolConfig);
 
 // Handle pool errors
-pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+pool.on('error', (err) => {
+  console.error('Unexpected database pool error:', err);
 });
 
-// Test connection on startup
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Database connection failed:', err);
-  } else {
-    console.log('Database connected successfully');
+// Test connection on startup with retry logic
+async function testConnection(retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const client = await pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+      console.log('Database connection test SUCCESSFUL');
+      return true;
+    } catch (err) {
+      console.error(`Database connection attempt ${i + 1} failed:`, err.message);
+      if (i < retries - 1) {
+        console.log(`Retrying in ${(i + 1) * 2} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
+      }
+    }
   }
-});
+  console.error('All database connection attempts failed');
+  return false;
+}
+
+// Run connection test
+testConnection();
 
 // Initialize database schema
 export async function initDatabase() {
