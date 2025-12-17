@@ -23,7 +23,6 @@ export const ReferralHandler: React.FC = () => {
             const expiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
             localStorage.setItem('zii_ref_code', refCode.toUpperCase());
             localStorage.setItem('zii_ref_expiry', expiry.toString());
-            localStorage.setItem('zii_partner_code', refCode.toUpperCase()); // Store for registration
             
             setActivePartner(partnerName);
 
