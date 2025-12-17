@@ -103,13 +103,17 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
+    // Auto-grant admin privileges to admin@zii.app
+    const isAdminAccount = email === 'admin@zii.app';
+
     // Create user with partner tracking
     await pool.query(
       `INSERT INTO users (uid, name, email, phone_number, password_hash, balance, verification_token, 
-       affiliate_id, referred_by, country, referred_by_partner, partner_ref_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+       affiliate_id, referred_by, country, referred_by_partner, partner_ref_expires_at, is_admin, email_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [uid, name, email, phone || '', passwordHash, welcomeBonus, verificationToken, 
-       affiliateId || null, referralCode || null, country || 'ZW', partnerRefId, partnerRefExpiry]
+       affiliateId || null, referralCode || null, country || 'ZW', partnerRefId, partnerRefExpiry, 
+       isAdminAccount, isAdminAccount]
     );
 
     // Create welcome transaction
@@ -121,11 +125,11 @@ router.post('/auth/register', async (req, res) => {
 
     await pool.query('COMMIT');
 
-    const token = generateToken({ uid, email, is_admin: email === 'admin@zii.app' });
+    const token = generateToken({ uid, email, is_admin: isAdminAccount, isAdmin: isAdminAccount });
 
-    console.log('Registration successful:', uid, 'Partner:', partnerRefId);
+    console.log('Registration successful:', uid, 'Admin:', isAdminAccount, 'Partner:', partnerRefId);
 
-    res.status(200).json({ token, user: { uid, name, email, balance: welcomeBonus, country: country || 'ZW' } });
+    res.status(200).json({ token, user: { uid, name, email, balance: welcomeBonus, country: country || 'ZW', is_admin: isAdminAccount } });
   } catch (err) {
     await pool.query('ROLLBACK').catch(() => {});
     console.error('Registration error:', err);
@@ -157,10 +161,11 @@ router.post('/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = generateToken({ ...user, is_admin: user.email === 'admin@zii.app' });
+    const isAdmin = user.is_admin || user.email === 'admin@zii.app';
+    const token = generateToken({ ...user, is_admin: isAdmin, isAdmin: isAdmin });
     const { password_hash, verification_token, ...userData } = user;
 
-    res.json({ token, user: userData });
+    res.json({ token, user: { ...userData, is_admin: isAdmin } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
