@@ -16,7 +16,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
 
 // CORS configuration - allow all origins
 app.use(cors({
-  origin: '*',
+  origin: true, // Reflects the request origin
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -114,56 +114,6 @@ app.use((req, res, next) => {
 
 // Mount API routes FIRST - before static files
 app.use('/api', apiRouter);
-
-// Create Stripe checkout session
-app.post('/api/create-checkout-session', async (req, res) => {
-  try {
-    const { userId, coins, amount } = req.body;
-
-    if (!userId || !coins || !amount) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Detect deployment URL
-    let baseUrl;
-    if (process.env.REPL_DEPLOYMENT === '1') {
-      baseUrl = `https://${process.env.REPL_SLUG}-${process.env.REPL_OWNER}.replit.app`;
-    } else if (process.env.REPL_SLUG) {
-      baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-    } else {
-      baseUrl = `http://localhost:${PORT}`;
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `${coins} Zii Coins`,
-              description: 'In-game currency for Zii predictions',
-            },
-            unit_amount: Math.round(amount * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: `${baseUrl}/#/wallet?payment=success`,
-      cancel_url: `${baseUrl}/#/wallet?payment=cancelled`,
-      metadata: {
-        userId,
-        coins: coins.toString(),
-      },
-    });
-
-    res.json({ sessionId: session.id });
-  } catch (error) {
-    console.error('Stripe session creation error:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
-  }
-});
 
 // Add error handling middleware for API routes
 app.use('/api', (err, req, res, next) => {
