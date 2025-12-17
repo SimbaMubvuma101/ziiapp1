@@ -1,7 +1,14 @@
 // Detect environment
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isReplitDomain = window.location.hostname.includes('replit') || 
-                       window.location.hostname.includes('repl.');
+const hostname = window.location.hostname;
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+const isReplitDomain = hostname.includes('replit') || hostname.includes('repl.co');
+
+console.log('🔍 Environment Detection:', {
+  hostname,
+  isLocalhost,
+  isReplitDomain,
+  timestamp: new Date().toISOString()
+});
 
 // For localhost development, use full URL with port
 // For all Replit domains and production, use empty string (same origin - server handles both frontend and API)
