@@ -1,13 +1,18 @@
 // Detect if we're in production deployment or development
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isProduction = !isLocalhost;
+const isReplitDev = window.location.hostname.includes('.repl.co');
+const isReplitProd = window.location.hostname.includes('.replit.app');
+const isProduction = isReplitProd || (!isLocalhost && !isReplitDev);
 
-const API_BASE_URL = isProduction ? '/api' : 'http://localhost:5000/api';
+// Always use relative path for API on Replit (both dev and prod serve from same domain)
+const API_BASE_URL = (isReplitDev || isReplitProd || isProduction) ? '/api' : 'http://localhost:5000/api';
 
 // Log API configuration on load
 console.log('API Configuration:', { 
   hostname: window.location.hostname,
   isLocalhost,
+  isReplitDev,
+  isReplitProd,
   isProduction,
   apiBase: API_BASE_URL 
 });
