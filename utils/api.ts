@@ -4,8 +4,10 @@ const isReplitDev = window.location.hostname.includes('.repl.co');
 const isReplitProd = window.location.hostname.includes('.replit.app');
 const isProduction = isReplitProd || (!isLocalhost && !isReplitDev);
 
-// Always use relative path for API on Replit (both dev and prod serve from same domain)
-const API_BASE_URL = (isReplitDev || isReplitProd || isProduction) ? '/api' : 'http://localhost:5000/api';
+// In production (deployed), use relative path. In dev, use the dev server URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.PROD ? '' : 'http://localhost:5000'
+);
 
 // Log API configuration on load
 console.log('API Configuration:', { 
