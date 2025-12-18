@@ -243,7 +243,17 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       if (activeTab === 'creators') {
           fetchCreatorInvites();
       }
+      if (activeTab === 'deploy' && deploySubTab === 'vouchers') {
+          fetchUsers();
+      }
   }, [activeTab]);
+
+  // Fetch users when switching to vouchers subtab
+  useEffect(() => {
+      if (activeTab === 'deploy' && deploySubTab === 'vouchers') {
+          fetchUsers();
+      }
+  }, [deploySubTab]);
 
   const fetchCreatorInvites = async () => {
       try {
