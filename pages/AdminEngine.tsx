@@ -358,10 +358,11 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   };
 
   const copyCreatorInviteLink = (code: string) => {
-      const baseUrl = window.location.href.split('#')[0];
-      const link = `${baseUrl}#/creator/invite?code=${code}`;
-      navigator.clipboard.writeText(link);
-      setStatusMsg(`Invite link copied!`);
+    const link = `${window.location.origin}/#/creator/invite?code=${code}`;
+    console.log('📋 Copying creator invite link:', link);
+    navigator.clipboard.writeText(link);
+    setStatusMsg('Invite link copied to clipboard!');
+    setTimeout(() => setStatusMsg(''), 3000);
   };
 
   const revokeCreatorInvite = async (inviteId: string) => {
@@ -492,7 +493,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
           setCategory('Trends & Viral');
           setDeployType(PredictionType.YES_NO);
           setClosingTime(getFutureDate(6));
-          setOptions([{ label: 'Yes (Darkness)', payout: 15 }, { label: 'No (Lights On)', payout: 15 }]);
+          setOptions([{ label: 'Yes', payout: 15 }, { label: 'No', payout: 15 }]);
       } else if (type === 'soccer') {
           setQuestion('EPL: Man City vs Arsenal - Who wins?');
           setCategory('Music & Culture');
@@ -928,7 +929,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                         </div>
                                         <div className="bg-zii-card p-5 rounded-3xl border border-white/5 shadow-sm relative overflow-hidden">
                                             <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest mb-1 flex items-center gap-1"><Zap size={12} className="text-zii-accent" /> Total Events</p>
-                                            <p className="text-3xl font-black text-white tracking-tighter">{stats.predictions.toLocaleString()}</p>
+                                            <p className="text-3xl font-black text-zii-accent tracking-tighter">{stats.predictions.toLocaleString()}</p>
                                         </div>
                                     </div>
 

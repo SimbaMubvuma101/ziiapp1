@@ -23,8 +23,11 @@ export const CreatorInvitePage: React.FC = () => {
   const code = searchParams.get('code');
 
   useEffect(() => {
+    console.log('🔍 Creator Invite - Code from URL:', code);
+    
     if (!code) {
-      setError('Invalid invite link');
+      console.error('❌ No invite code in URL');
+      setError('Invalid invite link - no code provided');
       setLoading(false);
       return;
     }
@@ -32,9 +35,12 @@ export const CreatorInvitePage: React.FC = () => {
     // Validate invite
     const validateInvite = async () => {
       try {
+        console.log('🔄 Validating invite code:', code);
         const inviteData = await api.validateCreatorInvite(code);
+        console.log('✅ Invite validated:', inviteData);
         setInvite(inviteData);
       } catch (err: any) {
+        console.error('❌ Invite validation failed:', err);
         setError(err.message || 'Invalid or expired invite');
       } finally {
         setLoading(false);
