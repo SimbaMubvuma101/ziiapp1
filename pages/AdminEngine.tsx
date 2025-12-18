@@ -316,10 +316,18 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
   const handleCreatePartner = async (e: React.FormEvent) => {
       e.preventDefault();
+      
+      if (!newPartnerName.trim() || !newPartnerCode.trim()) {
+          setStatusMsg("Name and code are required");
+          return;
+      }
+      
       setLoading(true);
+      setStatusMsg('');
+      
       try {
           await api.createAffiliate({
-              name: newPartnerName,
+              name: newPartnerName.trim(),
               code: newPartnerCode.trim().toUpperCase()
           });
 
@@ -328,7 +336,8 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
           setStatusMsg("Partner Created Successfully");
           await fetchAffiliates(); // Refresh list
       } catch (e: any) {
-          setStatusMsg(e.message);
+          console.error('Partner creation error:', e);
+          setStatusMsg(e.message || 'Failed to create partner');
       } finally {
           setLoading(false);
       }
