@@ -62,11 +62,30 @@ export const CreatorInvitePage: React.FC = () => {
     setError('');
 
     try {
-      const response = await api.claimCreatorInvite(code, email, password);
+      // Make API call with proper JSON payload
+      const response = await fetch('/api/creator-invites/claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code,
+          email,
+          password
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to claim invite');
+      }
+
+      const data = await response.json();
       
-      // The API returns a token, so we need to store it
-      if (response.token) {
-        localStorage.setItem('auth_token', response.token);
+      // Store the token
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token);
+        sessionStorage.setItem('auth_token', data.token);
       }
       
       setSuccess(true);
