@@ -700,56 +700,83 @@ router.get('/creator-invites/validate/:code', async (req, res) => {
 router.post('/creator-invites/claim', async (req, res) => {
   const client = await pool.connect();
   try {
-    console.log('📥 Creator Invite Claim Request:');
-    console.log('  - Body type:', typeof req.body);
-    console.log('  - Body keys:', Object.keys(req.body || {}));
-    console.log('  - Raw body:', JSON.stringify(req.body));
+    console.log('📥 Creator Invite Claim - Request received');
+    console.log('  - Content-Type:', req.headers['content-type']);
+    console.log('  - Body:', req.body);
     
+    // Validate request body exists
+    if (!req.body || typeof req.body !== 'object') {
+      console.error('❌ Invalid request body:', req.body);
+      return res.status(400).json({ error: 'Invalid request format' });
+    }
+
     const { code, email, password } = req.body;
     
-    console.log('  - Extracted values:', { code, email, hasPassword: !!password });
+    console.log('  - Parsed data:', { code, email, hasPassword: !!password });
 
-    if (!email || !password) {
-      throw new Error('Email and password are required');
+    // Validate required fields
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Valid invite code is required' });
+    }
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     await client.query('BEGIN');
 
+    // Validate invite code
     const inviteResult = await client.query(
-      'SELECT * FROM creator_invites WHERE code = $1 AND status = $2',
-      [code, 'active']
+      'SELECT * FROM creator_invites WHERE code = $1',
+      [code]
     );
 
     if (inviteResult.rows.length === 0) {
-      throw new Error('Invalid or expired invite');
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Invite code not found' });
     }
 
     const invite = inviteResult.rows[0];
 
-    // Check if user already exists
+    if (invite.status !== 'active') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: invite.status === 'claimed' ? 'This invite has already been claimed' : 'This invite has been revoked' 
+      });
+    }
+
+    // Check if email already exists
     const existingUser = await client.query(
-      'SELECT uid FROM users WHERE email = $1',
+      'SELECT uid, is_creator FROM users WHERE email = $1',
       [email]
     );
 
     let userId;
+    let isNewUser = false;
 
     if (existingUser.rows.length > 0) {
-      // User exists, just upgrade them to creator
       userId = existingUser.rows[0].uid;
-
+      
+      // Upgrade existing user to creator
+      console.log('  - Upgrading existing user to creator');
       await client.query(
         `UPDATE users SET 
          is_creator = true, 
          creator_name = $1, 
          creator_country = $2,
-         total_events_created = COALESCE(total_events_created, 0),
-         total_commission_earned = COALESCE(total_commission_earned, 0)
+         total_events_created = 0,
+         total_commission_earned = 0
          WHERE uid = $3`,
         [invite.name, invite.country, userId]
       );
     } else {
-      // Create new user account
+      // Create new creator account
+      console.log('  - Creating new creator account');
+      isNewUser = true;
       userId = uuidv4();
       const hashedPassword = await hashPassword(password);
 
@@ -759,8 +786,15 @@ router.post('/creator-invites/claim', async (req, res) => {
           is_creator, creator_name, creator_country,
           balance, winnings_balance, level, xp,
           email_verified, is_admin, total_events_created, total_commission_earned
-        ) VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, 0, 0, 1, 0, true, false, 0, 0)`,
-        [userId, email, hashedPassword, invite.name, '', invite.country, invite.name, invite.country]
+        ) VALUES ($1, $2, $3, $4, '', $5, true, $6, $7, 100, 0, 1, 0, true, false, 0, 0)`,
+        [userId, email, hashedPassword, invite.name, invite.country, invite.name, invite.country]
+      );
+
+      // Add welcome bonus transaction
+      await client.query(
+        `INSERT INTO transactions (user_id, type, amount, description)
+         VALUES ($1, 'deposit', 100, 'Welcome Bonus')`,
+        [userId]
       );
     }
 
@@ -773,24 +807,27 @@ router.post('/creator-invites/claim', async (req, res) => {
     await client.query('COMMIT');
 
     // Generate auth token
-    const token = generateToken({ uid: userId, email, isAdmin: false });
+    const token = generateToken({ uid: userId, email, isAdmin: false, is_admin: false });
+
+    console.log('✅ Creator invite claimed successfully');
 
     res.json({ 
-      message: 'Creator invite claimed',
+      message: 'Creator invite claimed successfully',
       token,
       user: {
         uid: userId,
         email,
         name: invite.name,
-        isCreator: true,
+        is_creator: true,
         creator_name: invite.name,
-        creator_country: invite.country
+        creator_country: invite.country,
+        balance: isNewUser ? 100 : undefined
       }
     });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Claim invite error:', err);
-    res.status(400).json({ error: err.message || 'Failed to claim invite' });
+    console.error('❌ Claim invite error:', err);
+    res.status(500).json({ error: err.message || 'Failed to claim creator invite' });
   } finally {
     client.release();
   }

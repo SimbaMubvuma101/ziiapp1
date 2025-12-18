@@ -52,15 +52,25 @@ export const CreatorInvitePage: React.FC = () => {
 
   const handleClaim = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code || !email || !password) return;
     
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    // Validate all fields
+    if (!code) {
+      setError('Invalid invite link');
+      return;
+    }
+    
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
     
@@ -68,12 +78,13 @@ export const CreatorInvitePage: React.FC = () => {
     setError('');
 
     try {
-      console.log('🚀 Claiming invite with:', { code, email, hasPassword: !!password });
-      // Use the api utility function which properly handles JSON
-      const data = await api.claimCreatorInvite(code, email, password);
-      console.log('✅ Claim successful:', data);
+      console.log('🚀 Claiming creator invite:', { code, email });
       
-      // Store the token
+      const data = await api.claimCreatorInvite(code, email, password);
+      
+      console.log('✅ Creator invite claimed:', data);
+      
+      // Store the authentication token
       if (data.token) {
         localStorage.setItem('auth_token', data.token);
         sessionStorage.setItem('auth_token', data.token);
@@ -81,12 +92,14 @@ export const CreatorInvitePage: React.FC = () => {
       
       setSuccess(true);
       
-      // Redirect to creator studio with full page reload to reinitialize auth
+      // Redirect to creator studio after a brief delay
       setTimeout(() => {
         window.location.href = '/#/creator/studio';
-      }, 1500);
+      }, 2000);
+      
     } catch (err: any) {
-      setError(err.message || 'Failed to claim invite');
+      console.error('❌ Claim failed:', err);
+      setError(err.message || 'Failed to claim creator invite. Please try again.');
       setClaiming(false);
     }
   };
