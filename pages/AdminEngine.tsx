@@ -342,11 +342,11 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
               country: newCreatorCountry
           }) as { code: string };
 
-          setStatusMsg("Creator Invite Generated!");
+          setStatusMsg("Creator Invite Generated & Link Copied!");
 
           // Copy link to clipboard
-          const baseUrl = window.location.href.split('#')[0];
-          const link = `${baseUrl}#/creator/invite?code=${invite.code}`;
+          const baseUrl = window.location.origin;
+          const link = `${baseUrl}/#/creator/invite?code=${invite.code}`;
           navigator.clipboard.writeText(link);
           setNewCreatorName('');
           await fetchCreatorInvites(); // Refresh list
@@ -355,6 +355,13 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       } finally {
           setLoading(false);
       }
+  };
+
+  const copyCreatorInviteLink = (code: string) => {
+      const baseUrl = window.location.origin;
+      const link = `${baseUrl}/#/creator/invite?code=${code}`;
+      navigator.clipboard.writeText(link);
+      setStatusMsg(`Invite link copied! Share with ${code.split('-')[0]} creator.`);
   };
 
   const revokeCreatorInvite = async (inviteId: string) => {
