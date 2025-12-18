@@ -147,17 +147,17 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
           });
-          
+
           if (!response.ok) {
             throw new Error(`Token generation failed: ${response.status}`);
           }
-          
+
           const data = await response.json();
           console.log('✅ HQ bypass token received');
-          
+
           localStorage.setItem('auth_token', data.token);
           sessionStorage.setItem('auth_token', data.token);
-          
+
           // Wait a moment for storage to persist
           setTimeout(() => {
             fetchStats();
@@ -358,10 +358,10 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   };
 
   const copyCreatorInviteLink = (code: string) => {
-      const baseUrl = window.location.origin;
-      const link = `${baseUrl}/#/creator/invite?code=${code}`;
+      const baseUrl = window.location.href.split('#')[0];
+      const link = `${baseUrl}#/creator/invite?code=${code}`;
       navigator.clipboard.writeText(link);
-      setStatusMsg(`Invite link copied! Share with ${code.split('-')[0]} creator.`);
+      setStatusMsg(`Invite link copied!`);
   };
 
   const revokeCreatorInvite = async (inviteId: string) => {
@@ -372,13 +372,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       } catch (e: any) {
           setStatusMsg(e.message);
       }
-  };
-
-  const copyCreatorInviteLink = (code: string) => {
-      const baseUrl = window.location.href.split('#')[0];
-      const link = `${baseUrl}#/creator/invite?code=${code}`;
-      navigator.clipboard.writeText(link);
-      setStatusMsg(`Invite link copied!`);
   };
 
   const copyPartnerLink = (code: string) => {
