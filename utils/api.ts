@@ -40,6 +40,16 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     defaultHeaders['Authorization'] = `Bearer ${getAuthToken()}`;
   }
 
+  // Log request details for debugging
+  if (options.method === 'POST' && options.body) {
+    console.log('📤 API Request:', {
+      endpoint,
+      method: options.method,
+      body: options.body,
+      bodyType: typeof options.body
+    });
+  }
+
   const response = await fetch(url, {
     ...options,
     headers: {

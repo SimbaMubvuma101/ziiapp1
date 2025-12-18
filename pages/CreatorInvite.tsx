@@ -68,8 +68,10 @@ export const CreatorInvitePage: React.FC = () => {
     setError('');
 
     try {
+      console.log('🚀 Claiming invite with:', { code, email, hasPassword: !!password });
       // Use the api utility function which properly handles JSON
       const data = await api.claimCreatorInvite(code, email, password);
+      console.log('✅ Claim successful:', data);
       
       // Store the token
       if (data.token) {
