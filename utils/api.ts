@@ -200,28 +200,11 @@ export const api = {
   validateCreatorInvite: (code: string) =>
     fetchAPI(`/creator-invites/validate/${code}`),
 
-  claimCreatorInvite: async (code: string, email: string, password: string) => {
-    console.log('🔧 claimCreatorInvite called with:', { code, email, hasPassword: !!password });
-    const payload = { code, email, password };
-    console.log('🔧 Payload object:', payload);
-    
-    const response = await fetch(`${API_BASE_URL}/api/creator-invites/claim`, {
+  claimCreatorInvite: (code: string, email: string, password: string) =>
+    fetchAPI('/creator-invites/claim', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    
-    console.log('🔧 Response status:', response.status);
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to claim invite' }));
-      throw new Error(error.error || `Request failed with status ${response.status}`);
-    }
-    
-    return response.json();
-  },
+      body: JSON.stringify({ code, email, password }),
+    }),
 
   // Affiliate validation
   validateAffiliate: (code: string) =>

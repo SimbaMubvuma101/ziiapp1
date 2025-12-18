@@ -700,7 +700,14 @@ router.get('/creator-invites/validate/:code', async (req, res) => {
 router.post('/creator-invites/claim', async (req, res) => {
   const client = await pool.connect();
   try {
+    console.log('📥 Creator Invite Claim Request:');
+    console.log('  - Body type:', typeof req.body);
+    console.log('  - Body keys:', Object.keys(req.body || {}));
+    console.log('  - Raw body:', JSON.stringify(req.body));
+    
     const { code, email, password } = req.body;
+    
+    console.log('  - Extracted values:', { code, email, hasPassword: !!password });
 
     if (!email || !password) {
       throw new Error('Email and password are required');
