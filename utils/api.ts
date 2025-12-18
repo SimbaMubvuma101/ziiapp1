@@ -200,11 +200,16 @@ export const api = {
   validateCreatorInvite: (code: string) =>
     fetchAPI(`/creator-invites/validate/${code}`),
 
-  claimCreatorInvite: (code: string, email: string, password: string) =>
-    fetchAPI('/creator-invites/claim', {
+  claimCreatorInvite: (code: string, email: string, password: string) => {
+    console.log('🔧 claimCreatorInvite called with:', { code, email, hasPassword: !!password });
+    const payload = { code, email, password };
+    console.log('🔧 Payload to send:', payload);
+    console.log('🔧 Stringified payload:', JSON.stringify(payload));
+    return fetchAPI('/creator-invites/claim', {
       method: 'POST',
-      body: JSON.stringify({ code, email, password }),
-    }),
+      body: JSON.stringify(payload),
+    });
+  },
 
   // Affiliate validation
   validateAffiliate: (code: string) =>
