@@ -261,7 +261,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       const interval = setInterval(loadEntries, 5000);
       // Cleanup interval on component unmount or when selectedPred changes
       return () => clearInterval(interval);
-  }, [selectedPred, userProfile]);
+  }, [selectedPred]);
 
   // Reset form when type changes
   useEffect(() => {

@@ -417,10 +417,26 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
   } else if (!adminMode) {
     const urlParams = getUrlParams();
 
+    console.log('🔍 Before Section Filter:', {
+      totalPredictions: predictions.length,
+      feedSection,
+      predictions: predictions.map(p => ({
+        question: p.question.substring(0, 30),
+        created_by_creator: p.created_by_creator,
+        creator_name: p.creator_name
+      }))
+    });
+
     // Filter by section: creator events vs main events
     filteredPredictions = predictions.filter(p => {
       const isCreatorEvent = !!p.created_by_creator;
       return feedSection === 'creator' ? isCreatorEvent : !isCreatorEvent;
+    });
+
+    console.log('🔍 After Section Filter:', {
+      filtered: filteredPredictions.length,
+      feedSection,
+      showing: filteredPredictions.map(p => p.question.substring(0, 30))
     });
 
     // Then filter by category if not 'All'

@@ -228,16 +228,21 @@ router.post('/predictions', authenticateMiddleware, async (req, res) => {
 
     const predictionId = uuidv4();
 
-    // Get creator info
-    const userResult = await client.query('SELECT creator_name FROM users WHERE uid = $1', [req.user.uid]);
-    const creatorName = userResult.rows[0]?.creator_name;
+    // Get user info to check if they're a creator (not admin)
+    const userResult = await client.query('SELECT creator_name, is_admin, email FROM users WHERE uid = $1', [req.user.uid]);
+    const user = userResult.rows[0];
+    
+    // Only mark as creator event if user is a creator AND not admin
+    const isCreatorEvent = user?.creator_name && !user?.is_admin && user?.email !== 'admin@zii.app';
+    const creatorName = isCreatorEvent ? user.creator_name : null;
+    const createdByCreator = isCreatorEvent ? req.user.uid : null;
 
     await client.query(
       `INSERT INTO predictions (id, question, category, country, type, status, closes_at, resolution_source, 
        created_by_creator, creator_name, options, liquidity_pool)
        VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11)`,
       [predictionId, question, category, country, type, closes_at, resolution_source, 
-       req.user.uid, creatorName, JSON.stringify(options), JSON.stringify(liquidity_pool)]
+       createdByCreator, creatorName, JSON.stringify(options), JSON.stringify(liquidity_pool)]
     );
 
     // Update creator stats
