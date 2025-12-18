@@ -548,6 +548,54 @@ router.get('/admin/stats', authenticateMiddleware, adminMiddleware, async (req, 
   }
 });
 
+router.get('/admin/users', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT uid, email, name, phone_number, balance, winnings_balance, country, 
+       is_creator, creator_name, created_at, last_login 
+       FROM users ORDER BY created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get users error:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+router.post('/admin/users/:uid/add-balance', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { uid } = req.params;
+    const { amount, description } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    await client.query('BEGIN');
+
+    await client.query(
+      'UPDATE users SET balance = balance + $1 WHERE uid = $2',
+      [amount, uid]
+    );
+
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, description)
+       VALUES ($1, 'deposit', $2, $3)`,
+      [uid, amount, description || 'Admin credit']
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Balance added successfully', amount });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Add balance error:', err);
+    res.status(500).json({ error: 'Failed to add balance' });
+  } finally {
+    client.release();
+  }
+});
+
 router.get('/admin/analytics', authenticateMiddleware, adminMiddleware, async (req, res) => {
   try {
     // Get transaction totals

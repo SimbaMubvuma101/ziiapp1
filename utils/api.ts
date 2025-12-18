@@ -175,6 +175,14 @@ export const api = {
 
   getAnalytics: () => fetchAPI('/admin/analytics'),
 
+  getUsers: () => fetchAPI('/admin/users'),
+
+  addUserBalance: (uid: string, amount: number, description?: string) =>
+    fetchAPI(`/admin/users/${uid}/add-balance`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, description }),
+    }),
+
   getSettings: () => fetchAPI('/settings'),
 
   updateSettings: (data: any) =>

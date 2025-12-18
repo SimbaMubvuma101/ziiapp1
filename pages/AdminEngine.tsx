@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader } from '../components/Loader';
-import { Zap, Activity, LogOut, CheckCircle, AlertTriangle, Layers, Home, Coins, ArrowLeft, Trophy, DollarSign, Users, Ticket, Copy, RefreshCw, Gauge, BarChart3, TrendingUp, TrendingDown, Calendar, Globe, Handshake, Link as LinkIcon, Info, Wallet, FileText, PieChart, ArrowUpRight, ArrowDownLeft, UserPlus, CreditCard, LayoutTemplate, Lightbulb, Dna, Settings, Save, Megaphone, Lock, Star } from 'lucide-react';
+import { Zap, Activity, LogOut, CheckCircle, AlertTriangle, Layers, Home, Coins, ArrowLeft, Trophy, DollarSign, Users, Ticket, Copy, RefreshCw, Gauge, BarChart3, TrendingUp, TrendingDown, Calendar, Globe, Handshake, Link as LinkIcon, Info, Wallet, FileText, PieChart, ArrowUpRight, ArrowDownLeft, UserPlus, CreditCard, LayoutTemplate, Lightbulb, Dna, Settings, Save, Megaphone, Lock, Star, X, Plus } from 'lucide-react';
 import { PredictionType, PredictionStatus, Prediction, UserEntry, Affiliate, PlatformSettings, CreatorInvite } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { Feed } from './Feed';
@@ -11,6 +11,16 @@ import { api } from '../utils/api';
 
 interface AdminEngineProps {
   bypassAuth?: boolean;
+}
+
+// Define a User type for the new user management feature
+interface User {
+    uid: string;
+    name: string;
+    email: string;
+    balance: string;
+    winnings_balance: string;
+    // Add any other relevant user properties
 }
 
 export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) => {
@@ -54,6 +64,11 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   // --- VOUCHER GENERATION STATE ---
   const [mintAmount, setMintAmount] = useState('');
   const [generatedVoucher, setGeneratedVoucher] = useState<{code: string, amount: string} | null>(null);
+
+  // --- USER MANAGEMENT STATE ---
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [creditAmount, setCreditAmount] = useState('');
 
   // --- ANALYTICS STATE ---
   const [analyticsData, setAnalyticsData] = useState<{
@@ -135,6 +150,20 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   });
   const [stats, setStats] = useState({ users: 0, predictions: 0 });
 
+  // Fetch all users
+  const fetchUsers = async () => {
+      setLoading(true);
+      try {
+          const data = await api.getUsers() as User[];
+          setUsers(data);
+      } catch (err) {
+          console.error('Failed to fetch users:', err);
+          setStatusMsg('Failed to fetch user data.');
+      } finally {
+          setLoading(false);
+      }
+  };
+
   // 1. Redirect if not authorized locally
   useEffect(() => {
     // Skip auth checks if accessed via HQGuard
@@ -161,6 +190,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
           // Wait a moment for storage to persist
           setTimeout(() => {
             fetchStats();
+            fetchUsers(); // Fetch users when bypass token is active
           }, 100);
         } catch (err) {
           console.error('❌ Failed to generate bypass token:', err);
@@ -183,6 +213,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
     if (isAdmin) {
         fetchStats();
+        fetchUsers(); // Fetch users when admin is logged in
     }
   }, [isAdmin, navigate, authLoading, currentUser, bypassAuth]);
 
@@ -316,15 +347,15 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
   const handleCreatePartner = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       if (!newPartnerName.trim() || !newPartnerCode.trim()) {
           setStatusMsg("Name and code are required");
           return;
       }
-      
+
       setLoading(true);
       setStatusMsg('');
-      
+
       try {
           await api.createAffiliate({
               name: newPartnerName.trim(),
@@ -543,6 +574,41 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
           setTimeout(() => setConfirmStep(0), 4000);
       } else {
           handleResolve();
+      }
+  };
+
+  // --- ADD BALANCE HANDLER ---
+  const handleAddBalance = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedUser) return;
+
+      setLoading(true);
+      setStatusMsg('');
+
+      try {
+          const amountToAdd = parseFloat(creditAmount);
+          if (isNaN(amountToAdd) || amountToAdd <= 0) {
+              throw new Error("Invalid amount");
+          }
+
+          await api.addBalanceToUser(selectedUser.uid, amountToAdd);
+          setStatusMsg(`Successfully added $${amountToAdd.toFixed(2)} to ${selectedUser.name}.`);
+
+          // Update the local user state to reflect the change immediately
+          setUsers(prevUsers =>
+              prevUsers.map(user =>
+                  user.uid === selectedUser.uid
+                      ? { ...user, balance: (parseFloat(user.balance) + amountToAdd).toFixed(2) }
+                      : user
+              )
+          );
+          setSelectedUser(null); // Deselect user after successful update
+          setCreditAmount(''); // Clear the amount input
+      } catch (err: any) {
+          console.error('Error adding balance:', err);
+          setStatusMsg(`Failed to add balance: ${err.message}`);
+      } finally {
+          setLoading(false);
       }
   };
 
@@ -1342,41 +1408,66 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
                         {deploySubTab === 'vouchers' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-                                {!generatedVoucher ? (
-                                    <form onSubmit={handleGenerateVoucher} className="space-y-5">
-                                        <div className="p-4 bg-zii-accent/5 border border-zii-accent/10 rounded-2xl text-xs text-zii-accent/80 flex items-start gap-3 leading-relaxed">
-                                            <Ticket size={18} className="shrink-0 mt-0.5" />
-                                            <span>This tool generates a 15-digit secure code. Send this code to a user via WhatsApp/SMS, and they can redeem it in their Wallet tab for immediate coins.</span>
+                                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-xs text-blue-200/80 flex items-start gap-3 leading-relaxed">
+                                    <Users size={18} className="shrink-0 mt-0.5" />
+                                    <span>Select a user and add tokens directly to their account. This will instantly appear in their wallet.</span>
+                                </div>
+
+                                {selectedUser ? (
+                                    <form onSubmit={handleAddBalance} className="space-y-5">
+                                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <div>
+                                                    <h3 className="font-bold text-white">{selectedUser.name}</h3>
+                                                    <p className="text-xs text-white/50">{selectedUser.email}</p>
+                                                </div>
+                                                <button type="button" onClick={() => setSelectedUser(null)} className="text-white/40 hover:text-white">
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+                                            <div className="flex gap-2 text-xs text-white/60 mt-3">
+                                                <span>Balance: ${selectedUser.balance}</span>
+                                                <span>•</span>
+                                                <span>Winnings: ${selectedUser.winnings_balance}</span>
+                                            </div>
                                         </div>
+
                                         <div className="space-y-1">
-                                            <div className="flex justify-between items-end mb-1 px-1">
-                                                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Voucher Value</label>
-                                                <span className="text-[10px] text-white/60 font-bold tracking-widest">{mintAmount ? `$${parseInt(mintAmount).toFixed(2)}` : '$0.00'}</span>
-                                            </div>
+                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add</label>
                                             <div className="relative">
-                                                <div className="absolute left-4 top-3.5 text-white/30"><Coins size={18} /></div>
-                                                <input required type="number" value={mintAmount} onChange={e => setMintAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono" placeholder="100" />
+                                                <Coins size={14} className="absolute left-3 top-3.5 text-white/30" />
+                                                <input required type="number" step="0.01" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono" placeholder="100.00" />
                                             </div>
                                         </div>
-                                        <button disabled={loading} className="w-full bg-white text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-white/5">
-                                            {loading ? <Loader className="text-black" /> : <><Zap size={20} fill="currentColor" /> GENERATE CODE</>}
+
+                                        <button disabled={loading} className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20">
+                                            {loading ? <Loader className="text-black" /> : <><Plus size={20} /> ADD BALANCE</>}
                                         </button>
                                     </form>
                                 ) : (
-                                    <div className="animate-in zoom-in-95 duration-200">
-                                        <div className="bg-white text-black p-8 rounded-3xl text-center mb-6 shadow-2xl relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-zii-accent to-zii-highlight"></div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 mb-3">Voucher Code</p>
-                                            <h2 className="text-3xl font-black font-mono tracking-wider mb-4 border-b-2 border-dashed border-black/10 pb-4">{generatedVoucher.code}</h2>
-                                            <div className="flex justify-center items-center gap-2">
-                                                <p className="text-xl font-bold">{generatedVoucher.amount} Coins</p>
-                                                <span className="text-sm opacity-50 font-mono">(${parseInt(generatedVoucher.amount).toFixed(2)})</span>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <button onClick={copyToClipboard} className="bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors border border-white/5"><Copy size={18} /> Copy</button>
-                                            <button onClick={() => { setGeneratedVoucher(null); setMintAmount(''); }} className="bg-zii-accent text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20"><RefreshCw size={18} /> New</button>
-                                        </div>
+                                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                                        {users.length === 0 ? (
+                                            <div className="text-center py-10 text-white/30 text-sm">No users found</div>
+                                        ) : (
+                                            users.map(user => (
+                                                <button
+                                                    key={user.uid}
+                                                    onClick={() => setSelectedUser(user)}
+                                                    className="w-full bg-zii-card hover:bg-white/10 border border-white/5 rounded-xl p-4 text-left transition-all"
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <h3 className="font-bold text-white text-sm">{user.name}</h3>
+                                                            <p className="text-xs text-white/50">{user.email}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-bold text-white">${parseFloat(user.balance).toFixed(2)}</p>
+                                                            <p className="text-[10px] text-white/30 uppercase font-bold">Balance</p>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1430,7 +1521,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                         </>
                     )}
                 </div>
-                </>
             )}
         </div>
       )}
