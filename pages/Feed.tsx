@@ -158,7 +158,18 @@ export const Feed: React.FC<FeedProps> = ({ adminMode = false, onPredictionClick
           filters.country = userCountry;
         }
 
+        console.log('🔍 Fetch Filters:', filters);
+        console.log('🌍 User Country:', userCountry);
+        console.log('👤 Current User:', currentUser?.email);
+        console.log('🔧 Admin Mode:', adminMode);
+
         const preds = await api.getPredictions(filters);
+        console.log('📊 Fetched predictions:', preds.length, 'events');
+
+        // Debug: Log each prediction's country
+        preds.forEach((p: Prediction) => {
+          console.log(`Event "${p.question.substring(0, 30)}..." → Country: ${p.country}, Status: ${p.status}, Created: ${p.created_at}`);
+        });
 
         // Filter expired events for non-admin users client-side as a fallback
         let filteredPreds = preds;

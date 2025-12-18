@@ -197,7 +197,16 @@ router.get('/predictions', async (req, res) => {
 
     query += ' ORDER BY created_at DESC';
 
+    console.log('📋 Predictions Query:', query);
+    console.log('📋 Query Params:', params);
+    console.log('📋 Request Query String:', req.query);
+
     const result = await pool.query(query, params);
+    console.log(`📋 Found ${result.rows.length} predictions matching filters`);
+    result.rows.forEach(p => {
+      console.log(`  - "${p.question.substring(0, 30)}..." (Country: ${p.country}, Status: ${p.status}, Created: ${p.created_at})`);
+    });
+
     res.json(result.rows);
   } catch (err) {
     console.error('Fetch predictions error:', err);

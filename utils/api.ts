@@ -15,7 +15,7 @@ console.log('🔍 Environment Detection:', {
 const API_BASE_URL = (isLocalhost && !isReplitDomain) ? 'http://localhost:5000' : '';
 
 // Log API configuration on load
-console.log('API Configuration:', { 
+console.log('API Configuration:', {
   hostname: window.location.hostname,
   isLocalhost,
   isReplitDomain,
@@ -98,14 +98,20 @@ export const api = {
   },
 
   // Predictions endpoints
-  getPredictions: (params?: { status?: string; category?: string; country?: string; creatorId?: string; eventId?: string }) => {
-    const query = new URLSearchParams();
-    if (params?.status) query.append('status', params.status);
-    if (params?.category) query.append('category', params.category);
-    if (params?.country) query.append('country', params.country);
-    if (params?.creatorId) query.append('creatorId', params.creatorId);
-    if (params?.eventId) query.append('eventId', params.eventId);
-    return fetchAPI(`/predictions?${query.toString()}`);
+  getPredictions: (filters?: { status?: string; category?: string; country?: string; creatorId?: string; eventId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+    }
+    const queryString = params.toString();
+    console.log('🌐 API Request - getPredictions:', {
+      filters,
+      queryString: queryString || '(empty)',
+      fullUrl: `/api/predictions?${queryString}`
+    });
+    return fetchAPI(`/predictions?${queryString}`);
   },
 
   createPrediction: (data: any) =>
