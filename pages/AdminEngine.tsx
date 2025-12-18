@@ -1412,27 +1412,31 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add</label>
+                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add ($)</label>
                                             <div className="relative">
                                                 <Coins size={14} className="absolute left-3 top-3.5 text-white/30" />
-                                                <input required type="number" step="0.01" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono" placeholder="100.00" />
+                                                <input required type="number" step="0.01" min="0" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono" placeholder="100.00" />
                                             </div>
                                         </div>
 
-                                        <button disabled={loading} className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20">
+                                        <button disabled={loading} className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20 active:scale-[0.98]">
                                             {loading ? <Loader className="text-black" /> : <><Plus size={20} /> ADD BALANCE</>}
                                         </button>
                                     </form>
                                 ) : (
                                     <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                                        {users.length === 0 ? (
-                                            <div className="text-center py-10 text-white/30 text-sm">No users found</div>
+                                        {loading ? (
+                                            <div className="text-center py-10">
+                                                <Loader className="text-zii-accent" />
+                                            </div>
+                                        ) : users.length === 0 ? (
+                                            <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No users found</div>
                                         ) : (
                                             users.map(user => (
                                                 <button
                                                     key={user.uid}
                                                     onClick={() => setSelectedUser(user)}
-                                                    className="w-full bg-zii-card hover:bg-white/10 border border-white/5 rounded-xl p-4 text-left transition-all"
+                                                    className="w-full bg-zii-card hover:bg-white/10 border border-white/5 rounded-xl p-4 text-left transition-all active:scale-[0.98]"
                                                 >
                                                     <div className="flex justify-between items-center">
                                                         <div>
