@@ -226,4 +226,13 @@ export const api = {
   // Affiliate validation
   validateAffiliate: (code: string) =>
     fetchAPI(`/affiliates/validate?code=${code}`),
+
+  // Affiliate management
+  createAffiliate: (data: { name: string; code: string }) =>
+    fetchAPI('/admin/affiliates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAffiliates: () => fetchAPI('/admin/affiliates'),
 };

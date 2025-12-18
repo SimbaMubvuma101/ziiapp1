@@ -899,6 +899,45 @@ router.delete('/auth/delete-account', authenticateMiddleware, async (req, res) =
   }
 });
 
+// ============ AFFILIATE MANAGEMENT ============
+
+router.get('/admin/affiliates', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM affiliates ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get affiliates error:', err);
+    res.status(500).json({ error: 'Failed to fetch affiliates' });
+  }
+});
+
+router.post('/admin/affiliates', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { name, code } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({ error: 'Name and code are required' });
+    }
+
+    // Check if code already exists
+    const existing = await pool.query('SELECT * FROM affiliates WHERE code = $1', [code.toUpperCase()]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Affiliate code already exists' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO affiliates (name, code, total_volume, created_at)
+       VALUES ($1, $2, 0, CURRENT_TIMESTAMP) RETURNING *`,
+      [name, code.toUpperCase()]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Create affiliate error:', err);
+    res.status(500).json({ error: 'Failed to create affiliate' });
+  }
+});
+
 // ============ AFFILIATE VALIDATION ============
 
 router.get('/affiliates/validate', async (req, res) => {

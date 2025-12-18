@@ -286,8 +286,9 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       try {
           const data = await api.getAffiliates();
           setAffiliates(data);
-      } catch (err) {
-          console.error('Failed to fetch affiliates:', err);
+      } catch (e: any) {
+          console.error('Failed to fetch affiliates:', e);
+          setStatusMsg(e.message);
       }
   };
 
