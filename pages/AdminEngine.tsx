@@ -61,10 +61,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   const [winningOption, setWinningOption] = useState<string>('');
   const [confirmStep, setConfirmStep] = useState(0); // 0 = Idle, 1 = Confirming
 
-  // --- VOUCHER GENERATION STATE ---
-  const [mintAmount, setMintAmount] = useState('');
-  const [generatedVoucher, setGeneratedVoucher] = useState<{code: string, amount: string} | null>(null);
-
   // --- USER MANAGEMENT STATE ---
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -488,34 +484,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
     }
   };
 
-  // --- VOUCHER GENERATOR ---
-  const handleGenerateVoucher = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoading(true);
-      setStatusMsg('');
-
-      try {
-          const amount = parseInt(mintAmount);
-          if (!amount || isNaN(amount) || amount <= 0) throw new Error("Invalid Amount");
-
-          const voucher = await api.createVoucher(amount);
-          setGeneratedVoucher({ code: voucher.code, amount: mintAmount });
-          setStatusMsg(`SUCCESS: Voucher Created.`);
-          setMintAmount('');
-      } catch (err: any) {
-          setStatusMsg(`Generation Failed: ${err.message}`);
-      } finally {
-          setLoading(false);
-      }
-  };
-
-  const copyToClipboard = () => {
-      if (generatedVoucher) {
-          navigator.clipboard.writeText(generatedVoucher.code);
-          setStatusMsg("Code Copied!");
-      }
-  };
-
   const handleOptionChange = (idx: number, field: 'label' | 'payout', value: any) => {
       const newOpts = [...options];
       // @ts-ignore
@@ -601,7 +569,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
               throw new Error("Invalid amount");
           }
 
-          await api.addBalanceToUser(selectedUser.uid, amountToAdd);
+          await api.addUserBalance(selectedUser.uid, amountToAdd, 'Admin credit');
           setStatusMsg(`Successfully added $${amountToAdd.toFixed(2)} to ${selectedUser.name}.`);
 
           // Update the local user state to reflect the change immediately
@@ -1418,9 +1386,10 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
                         {deploySubTab === 'vouchers' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-                                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-xs text-blue-200/80 flex items-start gap-3 leading-relaxed">
-                                    <Users size={18} className="shrink-0 mt-0.5" />
-                                    <span>Select a user and add tokens directly to their account. This will instantly appear in their wallet.</span>
+                                <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
+                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users size={20} className="text-zii-accent" /> User Management</h2>
+                                    <p className="text-xs text-white/40 mt-1">Add balance directly to user accounts.</p>
                                 </div>
 
                                 {selectedUser ? (
