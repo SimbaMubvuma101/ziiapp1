@@ -1534,11 +1534,8 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                             </div>
                         )}
                         </>
-                    )}
                 </div>
             )}
-        </div>
-      )}
 
       {activeTab === 'feed' && (
         <div className="min-h-screen bg-zii-bg relative">
