@@ -95,40 +95,6 @@ export const Wallet: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRedeem = async () => {
-    if (!voucherCode.trim() || !userProfile) return;
-    setIsRedeeming(true);
-
-    try {
-      const result = await api.redeemVoucher(voucherCode.trim()) as { 
-        leveledUp?: boolean; 
-        newLevel?: number; 
-        rewardAmount?: number; 
-        amount: number 
-      };
-
-      setVoucherCode('');
-
-      if (result.leveledUp) {
-        setNewLevelData({ 
-          level: result.newLevel!, 
-          reward: result.rewardAmount ? (result.rewardAmount * exchangeRate) : undefined 
-        });
-      } else {
-        setRedeemSuccess({ amount: result.amount * exchangeRate });
-      }
-
-      // Refresh user data
-      await refreshUser();
-
-    } catch (e: any) {
-      console.error("Redemption failed", e);
-      setErrorMessage(e.message || "Redemption failed. Please try again.");
-    } finally {
-      setIsRedeeming(false);
-    }
-  };
-
   return (
     <div className="pb-24 pt-8 px-4 animate-in fade-in duration-500">
 
@@ -162,7 +128,7 @@ export const Wallet: React.FC = () => {
               <CheckCircle size={40} className="text-zii-accent" strokeWidth={2.5} />
             </div>
 
-            <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Voucher Redeemed!</h2>
+            <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Success!</h2>
             <p className="text-white/60 mb-8 leading-relaxed">
               You have successfully added <span className="text-zii-accent font-bold text-lg">{redeemSuccess.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} Coins</span> to your wallet.
             </p>
@@ -243,30 +209,6 @@ export const Wallet: React.FC = () => {
             Use them to play, and if you win, you earn real withdrawable cash.
             <br/><span className="opacity-50 mt-1 block">1 Coin ≈ {currencySymbol}1.00 Value.</span>
           </span>
-        </div>
-      </div>
-
-      <div className="bg-white/5 p-4 rounded-2xl border border-white/5 mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <Gift size={16} className="text-white/60" />
-          <h3 className="font-bold text-sm text-white/90">Redeem Coin Voucher</h3>
-        </div>
-        <div className="flex gap-2">
-          <input 
-            type="text" 
-            value={voucherCode}
-            onChange={(e) => setVoucherCode(e.target.value)}
-            disabled={isRedeeming}
-            placeholder="Enter 15-digit code"
-            className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-colors disabled:opacity-50 font-mono"
-          />
-          <button 
-            onClick={handleRedeem}
-            disabled={!voucherCode.trim() || isRedeeming}
-            className="bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold px-4 rounded-xl transition-colors text-sm min-w-[70px] flex justify-center items-center"
-          >
-            {isRedeeming ? <Loader size={16} /> : 'Add'}
-          </button>
         </div>
       </div>
 

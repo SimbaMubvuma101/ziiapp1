@@ -158,12 +158,6 @@ export const api = {
 
   getTransactions: () => fetchAPI('/transactions'),
 
-  redeemVoucher: (code: string) =>
-    fetchAPI('/wallet/redeem', {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    }),
-
   cashout: (data: { amount: number; phone: string; method: string }) =>
     fetchAPI('/wallet/cashout', {
       method: 'POST',

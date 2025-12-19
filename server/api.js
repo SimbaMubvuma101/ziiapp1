@@ -487,51 +487,6 @@ router.get('/transactions', authenticateMiddleware, async (req, res) => {
   }
 });
 
-router.post('/wallet/redeem', authenticateMiddleware, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const { code } = req.body;
-
-    await client.query('BEGIN');
-
-    const voucherResult = await client.query(
-      'SELECT * FROM vouchers WHERE code = $1 AND status = $2',
-      [code, 'active']
-    );
-
-    if (voucherResult.rows.length === 0) {
-      throw new Error('Invalid or already redeemed voucher');
-    }
-
-    const voucher = voucherResult.rows[0];
-
-    await client.query(
-      'UPDATE vouchers SET status = $1, redeemed_by = $2, redeemed_at = CURRENT_TIMESTAMP WHERE id = $3',
-      ['redeemed', req.user.uid, voucher.id]
-    );
-
-    await client.query(
-      'UPDATE users SET balance = balance + $1 WHERE uid = $2',
-      [voucher.amount, req.user.uid]
-    );
-
-    await client.query(
-      `INSERT INTO transactions (user_id, type, amount, description)
-       VALUES ($1, 'deposit', $2, 'Voucher redeemed')`,
-      [req.user.uid, voucher.amount]
-    );
-
-    await client.query('COMMIT');
-    res.json({ message: 'Voucher redeemed', amount: voucher.amount });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Redeem voucher error:', err);
-    res.status(400).json({ error: err.message || 'Failed to redeem voucher' });
-  } finally {
-    client.release();
-  }
-});
-
 // ============ ADMIN ROUTES ============
 
 router.get('/admin/stats', authenticateMiddleware, adminMiddleware, async (req, res) => {

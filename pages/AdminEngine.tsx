@@ -43,7 +43,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   const [partnerSubTab, setPartnerSubTab] = useState<'overview' | 'onboard' | 'payouts'>('overview');
 
   // Deploy Sub-Tabs
-  const [deploySubTab, setDeploySubTab] = useState<'event' | 'vouchers' | 'templates'>('event');
+  const [deploySubTab, setDeploySubTab] = useState<'event' | 'templates'>('event');
 
   // Settings State (Local to allow editing before saving)
   const [settingsForm, setSettingsForm] = useState<PlatformSettings>({
@@ -244,12 +244,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       }
   }, [activeTab]);
 
-  // Fetch users when switching to vouchers subtab
-  useEffect(() => {
-      if (activeTab === 'deploy' && deploySubTab === 'vouchers') {
-          fetchUsers();
-      }
-  }, [deploySubTab]);
+  
 
   const fetchCreatorInvites = async () => {
       try {
@@ -1271,16 +1266,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                               <Zap size={12} /> New Event
                             </button>
                             <button
-                              onClick={() => setDeploySubTab('vouchers')}
-                              className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1 ${
-                                deploySubTab === 'vouchers'
-                                  ? 'bg-zii-card text-white shadow-sm border border-white/5'
-                                  : 'text-white/40 hover:text-white/60'
-                              }`}
-                            >
-                              <Ticket size={12} /> Vouchers
-                            </button>
-                            <button
                               onClick={() => setDeploySubTab('templates')}
                               className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1 ${
                                 deploySubTab === 'templates'
@@ -1382,110 +1367,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                     {loading ? <Loader className="text-black" /> : <><Zap size={20} fill="currentColor" /> DEPLOY EVENT</>}
                                 </button>
                             </form>
-                        )}
-
-                        {deploySubTab === 'vouchers' && (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-                                <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
-                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Wallet size={20} className="text-zii-accent" /> User Balance Manager</h2>
-                                    <p className="text-xs text-white/40 mt-1">Add coins directly to user accounts.</p>
-                                </div>
-
-                                {statusMsg && (
-                                    <div className={`p-4 rounded-2xl flex items-start gap-3 text-xs font-bold animate-pulse border ${statusMsg.includes('Failed') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zii-accent/10 border-zii-accent/20 text-zii-accent'}`}>
-                                        {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />}
-                                        <span className="leading-relaxed">{statusMsg}</span>
-                                    </div>
-                                )}
-
-                                {selectedUser ? (
-                                    <form onSubmit={handleAddBalance} className="space-y-5">
-                                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <div>
-                                                    <h3 className="font-bold text-white">{selectedUser.name}</h3>
-                                                    <p className="text-xs text-white/50">{selectedUser.email}</p>
-                                                </div>
-                                                <button type="button" onClick={() => setSelectedUser(null)} className="text-white/40 hover:text-white transition-colors">
-                                                    <X size={20} />
-                                                </button>
-                                            </div>
-                                            <div className="flex gap-2 text-xs text-white/60 mt-3">
-                                                <span>Balance: ${parseFloat(selectedUser.balance).toFixed(2)}</span>
-                                                <span>•</span>
-                                                <span>Winnings: ${parseFloat(selectedUser.winnings_balance).toFixed(2)}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add ($)</label>
-                                            <div className="relative">
-                                                <Coins size={16} className="absolute left-3 top-3.5 text-white/30" />
-                                                <input 
-                                                    required 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    min="0.01" 
-                                                    value={creditAmount} 
-                                                    onChange={e => setCreditAmount(e.target.value)} 
-                                                    className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono text-lg" 
-                                                    placeholder="10.00" 
-                                                />
-                                            </div>
-                                            <p className="text-[10px] text-white/30 pl-1">This will add USD to their game balance.</p>
-                                        </div>
-
-                                        <button 
-                                            disabled={loading} 
-                                            className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20 active:scale-[0.98] disabled:opacity-50"
-                                        >
-                                            {loading ? <Loader className="text-black" /> : <><Plus size={20} /> INJECT COINS</>}
-                                        </button>
-                                    </form>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center px-1">
-                                            <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Select User Account</h3>
-                                            <button 
-                                                onClick={fetchUsers} 
-                                                disabled={loading}
-                                                className="text-[10px] text-zii-accent uppercase font-bold tracking-widest flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50"
-                                            >
-                                                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
-                                            </button>
-                                        </div>
-                                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                                            {loading ? (
-                                                <div className="text-center py-10">
-                                                    <Loader className="text-zii-accent" />
-                                                </div>
-                                            ) : users.length === 0 ? (
-                                                <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No users found. Click Refresh.</div>
-                                            ) : (
-                                                users.map(user => (
-                                                    <button
-                                                        key={user.uid}
-                                                        onClick={() => setSelectedUser(user)}
-                                                        className="w-full bg-zii-card hover:bg-white/10 border border-white/5 rounded-xl p-4 text-left transition-all active:scale-[0.98]"
-                                                    >
-                                                        <div className="flex justify-between items-center">
-                                                            <div>
-                                                                <h3 className="font-bold text-white text-sm">{user.name}</h3>
-                                                                <p className="text-xs text-white/50">{user.email}</p>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <p className="text-sm font-bold text-white">${parseFloat(user.balance).toFixed(2)}</p>
-                                                                <p className="text-[10px] text-white/30 uppercase font-bold">Balance</p>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
                         )}
 
                         {deploySubTab === 'templates' && (
