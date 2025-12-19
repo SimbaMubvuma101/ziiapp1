@@ -55,7 +55,7 @@ export const Wallet: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">My Wallet</h2>
         <p className="text-white/50 text-sm mb-8 leading-relaxed">
-          Join Zii to manage your coins, redeem vouchers, and cash out your winnings.
+          Join Zii to manage your coins and cash out your winnings.
         </p>
         <button 
           onClick={() => navigate('/register')}

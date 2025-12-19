@@ -239,9 +239,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       if (activeTab === 'creators') {
           fetchCreatorInvites();
       }
-      if (activeTab === 'deploy' && deploySubTab === 'vouchers') {
-          fetchUsers();
-      }
   }, [activeTab]);
 
   
@@ -1415,6 +1412,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                             </div>
                         )}
                         </>
+                    </>
                 </div>
             )}
 

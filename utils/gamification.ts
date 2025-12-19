@@ -2,7 +2,6 @@
 export const GAME_CONFIG = {
   XP_PER_LEVEL: 10, // 1 Level per standard bet (10 XP)
   XP_PER_BET: 10,
-  XP_PER_VOUCHER: 50, // +5 Levels
   XP_PER_WIN: 20, // +2 Levels
   REWARD_INTERVAL: 10, // Reward every 10 levels (approx 10 bets)
   REWARD_AMOUNT: 5, // 5 Coins
