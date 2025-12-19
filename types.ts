@@ -123,17 +123,7 @@ export interface FirestoreUser {
   total_commission_earned?: number;
 }
 
-// Voucher System
-export interface Voucher {
-  id?: string;
-  code: string;
-  amount: number;
-  status: 'active' | 'redeemed';
-  created_at: any;
-  created_by: string;
-  redeemed_by?: string;
-  redeemed_at?: any;
-}
+
 
 // Affiliate System
 export interface Affiliate {

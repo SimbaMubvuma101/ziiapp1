@@ -148,19 +148,7 @@ export async function initDatabase() {
       )
     `);
 
-    // Create vouchers table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS vouchers (
-        id SERIAL PRIMARY KEY,
-        code VARCHAR(50) UNIQUE NOT NULL,
-        amount DECIMAL(10, 2) NOT NULL,
-        status VARCHAR(50) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_by VARCHAR(255) REFERENCES users(uid),
-        redeemed_by VARCHAR(255) REFERENCES users(uid),
-        redeemed_at TIMESTAMP
-      )
-    `);
+    
 
     // Create affiliates table
     await client.query(`

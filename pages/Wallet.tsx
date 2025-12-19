@@ -16,10 +16,7 @@ export const Wallet: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [voucherCode, setVoucherCode] = useState('');
-  const [isRedeeming, setIsRedeeming] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [redeemSuccess, setRedeemSuccess] = useState<{ amount: number } | null>(null);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
@@ -120,36 +117,7 @@ export const Wallet: React.FC = () => {
         />
       )}
 
-      {redeemSuccess && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200 p-4">
-          <div className="w-full max-w-sm bg-[#1E293B] border border-zii-accent/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(39,241,199,0.1)] text-center relative animate-in zoom-in-95 slide-in-from-bottom-4">
-
-            <div className="w-20 h-20 bg-zii-accent/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-zii-accent/20 shadow-[0_0_15px_rgba(39,241,199,0.2)]">
-              <CheckCircle size={40} className="text-zii-accent" strokeWidth={2.5} />
-            </div>
-
-            <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Success!</h2>
-            <p className="text-white/60 mb-8 leading-relaxed">
-              You have successfully added <span className="text-zii-accent font-bold text-lg">{redeemSuccess.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} Coins</span> to your wallet.
-            </p>
-
-            <div className="space-y-3">
-              <button 
-                onClick={() => navigate('/earn')}
-                className="w-full bg-zii-accent text-black font-bold py-4 rounded-xl hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-zii-accent/20 active:scale-[0.98]"
-              >
-                Start Earning <ArrowRight size={20} />
-              </button>
-              <button 
-                onClick={() => setRedeemSuccess(null)}
-                className="w-full bg-white/5 text-white/50 font-bold py-4 rounded-xl hover:bg-white/10 hover:text-white transition-colors"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       <div className="flex items-center gap-2 mb-6 opacity-60">
         <WalletIcon size={20} className="text-zii-accent" />

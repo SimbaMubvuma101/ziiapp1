@@ -70,17 +70,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Vouchers table
-CREATE TABLE IF NOT EXISTS vouchers (
-    id SERIAL PRIMARY KEY,
-    code VARCHAR(20) UNIQUE NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'active',
-    created_by VARCHAR(255),
-    redeemed_by VARCHAR(255),
-    redeemed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+
 
 -- Affiliates table
 CREATE TABLE IF NOT EXISTS affiliates (
