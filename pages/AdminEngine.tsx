@@ -1158,7 +1158,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                                     </div>
                                                 </div>
                                             </div>
-                                        )
+                                        );
                                     })
                                 )}
                             </div>
@@ -1167,6 +1167,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                 </div>
             ) : (
                 <>
+                    {/* Standard Deploy/Mint Header Stats */}
                 {/* Standard Deploy/Mint Header Stats */}
                 <div className="grid grid-cols-2 gap-3 mb-8">
                     <div className="bg-zii-card p-5 rounded-3xl border border-white/5 shadow-sm">
