@@ -1388,9 +1388,16 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                                 <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
-                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Coins size={20} className="text-zii-accent" /> Add Coins to Users</h2>
+                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Coins size={20} className="text-zii-accent" /> Inject Coins to Users</h2>
                                     <p className="text-xs text-white/40 mt-1">Credit coins directly to user accounts (Admin only).</p>
                                 </div>
+
+                                {statusMsg && (
+                                    <div className={`p-4 rounded-2xl flex items-start gap-3 text-xs font-bold animate-pulse border ${statusMsg.includes('Failed') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zii-accent/10 border-zii-accent/20 text-zii-accent'}`}>
+                                        {statusMsg.includes('Failed') ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle size={16} className="mt-0.5 shrink-0" />}
+                                        <span className="leading-relaxed">{statusMsg}</span>
+                                    </div>
+                                )}
 
                                 {selectedUser ? (
                                     <form onSubmit={handleAddBalance} className="space-y-5">
@@ -1412,34 +1419,34 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add (Coins)</label>
+                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add ($)</label>
                                             <div className="relative">
                                                 <Coins size={16} className="absolute left-3 top-3.5 text-white/30" />
                                                 <input 
                                                     required 
                                                     type="number" 
-                                                    step="1" 
-                                                    min="1" 
+                                                    step="0.01" 
+                                                    min="0.01" 
                                                     value={creditAmount} 
                                                     onChange={e => setCreditAmount(e.target.value)} 
                                                     className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono text-lg" 
-                                                    placeholder="100" 
+                                                    placeholder="10.00" 
                                                 />
                                             </div>
-                                            <p className="text-[10px] text-white/30 pl-1">This will add coins to their game balance.</p>
+                                            <p className="text-[10px] text-white/30 pl-1">This will add USD to their game balance (coins).</p>
                                         </div>
 
                                         <button 
                                             disabled={loading} 
                                             className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20 active:scale-[0.98] disabled:opacity-50"
                                         >
-                                            {loading ? <Loader className="text-black" /> : <><Plus size={20} /> ADD COINS</>}
+                                            {loading ? <Loader className="text-black" /> : <><Plus size={20} /> INJECT COINS</>}
                                         </button>
                                     </form>
                                 ) : (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center px-1">
-                                            <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Select User</h3>
+                                            <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Select User Account</h3>
                                             <button 
                                                 onClick={fetchUsers} 
                                                 disabled={loading}
@@ -1454,7 +1461,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                                     <Loader className="text-zii-accent" />
                                                 </div>
                                             ) : users.length === 0 ? (
-                                                <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No users found</div>
+                                                <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No users found. Click Refresh.</div>
                                             ) : (
                                                 users.map(user => (
                                                     <button
