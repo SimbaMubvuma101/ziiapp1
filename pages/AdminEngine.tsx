@@ -1389,7 +1389,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                 <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
                                     <h2 className="text-lg font-bold text-white flex items-center gap-2"><Wallet size={20} className="text-zii-accent" /> User Balance Manager</h2>
-                                    <p className="text-xs text-white/40 mt-1">Inject coins directly into user accounts.</p>
+                                    <p className="text-xs text-white/40 mt-1">Add coins directly to user accounts.</p>
                                 </div>
 
                                 {statusMsg && (
