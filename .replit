@@ -50,3 +50,7 @@ build = ["sh", "-c", "npm run build"]
 
 [userenv.shared]
 NODE_ENV = "production"
+
+[env]
+DATABASE_URL = "secret:DATABASE_URL"
+REPLIT_DISABLE_PACKAGE_LAYER = "1"
