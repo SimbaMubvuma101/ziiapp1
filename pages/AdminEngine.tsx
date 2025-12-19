@@ -51,7 +51,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   const [winningOption, setWinningOption] = useState<string>('');
   const [confirmStep, setConfirmStep] = useState(0); // 0 = Idle, 1 = Confirming
 
-  
+
 
   // --- ANALYTICS STATE ---
   const [analyticsData, setAnalyticsData] = useState<{
@@ -133,7 +133,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   });
   const [stats, setStats] = useState({ users: 0, predictions: 0 });
 
-  
+
 
   // 1. Redirect if not authorized locally
   useEffect(() => {
@@ -214,7 +214,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       }
   }, [activeTab]);
 
-  
+
 
   const fetchCreatorInvites = async () => {
       try {
@@ -520,7 +520,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       }
   };
 
-  
+
 
   // --- RENDER DETAIL VIEW ---
   const renderDetailView = () => {
