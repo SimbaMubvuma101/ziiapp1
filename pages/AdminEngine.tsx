@@ -13,16 +13,6 @@ interface AdminEngineProps {
   bypassAuth?: boolean;
 }
 
-// Define a User type for the new user management feature
-interface User {
-    uid: string;
-    name: string;
-    email: string;
-    balance: string;
-    winnings_balance: string;
-    // Add any other relevant user properties
-}
-
 export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) => {
   const { isAdmin, logout, currentUser, userProfile, platformSettings, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -61,10 +51,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   const [winningOption, setWinningOption] = useState<string>('');
   const [confirmStep, setConfirmStep] = useState(0); // 0 = Idle, 1 = Confirming
 
-  // --- USER MANAGEMENT STATE ---
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [creditAmount, setCreditAmount] = useState('');
+  
 
   // --- ANALYTICS STATE ---
   const [analyticsData, setAnalyticsData] = useState<{
@@ -146,19 +133,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
   });
   const [stats, setStats] = useState({ users: 0, predictions: 0 });
 
-  // Fetch all users
-  const fetchUsers = async () => {
-      setLoading(true);
-      try {
-          const data = await api.getUsers() as User[];
-          setUsers(data);
-      } catch (err) {
-          console.error('Failed to fetch users:', err);
-          setStatusMsg('Failed to fetch user data.');
-      } finally {
-          setLoading(false);
-      }
-  };
+  
 
   // 1. Redirect if not authorized locally
   useEffect(() => {
@@ -186,7 +161,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
           // Wait a moment for storage to persist
           setTimeout(() => {
             fetchStats();
-            fetchUsers(); // Fetch users when bypass token is active
           }, 100);
         } catch (err) {
           console.error('❌ Failed to generate bypass token:', err);
@@ -209,7 +183,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
 
     if (isAdmin) {
         fetchStats();
-        fetchUsers(); // Fetch users when admin is logged in
     }
   }, [isAdmin, navigate, authLoading, currentUser, bypassAuth]);
 
@@ -547,40 +520,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
       }
   };
 
-  // --- ADD BALANCE HANDLER ---
-  const handleAddBalance = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!selectedUser) return;
-
-      setLoading(true);
-      setStatusMsg('');
-
-      try {
-          const amountToAdd = parseFloat(creditAmount);
-          if (isNaN(amountToAdd) || amountToAdd <= 0) {
-              throw new Error("Invalid amount");
-          }
-
-          await api.addUserBalance(selectedUser.uid, amountToAdd, 'Admin credit');
-          setStatusMsg(`Successfully added $${amountToAdd.toFixed(2)} to ${selectedUser.name}.`);
-
-          // Update the local user state to reflect the change immediately
-          setUsers(prevUsers =>
-              prevUsers.map(user =>
-                  user.uid === selectedUser.uid
-                      ? { ...user, balance: (parseFloat(user.balance) + amountToAdd).toFixed(2) }
-                      : user
-              )
-          );
-          setSelectedUser(null); // Deselect user after successful update
-          setCreditAmount(''); // Clear the amount input
-      } catch (err: any) {
-          console.error('Error adding balance:', err);
-          setStatusMsg(`Failed to add balance: ${err.message}`);
-      } finally {
-          setLoading(false);
-      }
-  };
+  
 
   // --- RENDER DETAIL VIEW ---
   const renderDetailView = () => {
