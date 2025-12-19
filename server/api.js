@@ -11,6 +11,88 @@ import {
 } from './auth.js';
 import { v4 as uuidv4 } from 'uuid';
 
+// Admin endpoint: Inject tokens
+router.post('/admin/inject-tokens', authenticateMiddleware, adminMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { user_identifier, amount, reason, note } = req.body;
+
+    if (!user_identifier || !amount || !reason) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'user_identifier, amount, and reason are required' });
+    }
+
+    // Resolve user by email or UID
+    let userQuery;
+    if (user_identifier.includes('@')) {
+      userQuery = await client.query('SELECT * FROM users WHERE email = $1', [user_identifier]);
+    } else {
+      userQuery = await client.query('SELECT * FROM users WHERE uid = $1', [user_identifier]);
+    }
+
+    if (userQuery.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userQuery.rows[0];
+
+    // Credit wallet
+    const newBalance = (parseFloat(user.balance) || 0) + parseFloat(amount);
+    await client.query(
+      'UPDATE users SET balance = $1 WHERE uid = $2',
+      [newBalance, user.uid]
+    );
+
+    // Write ledger entry
+    const ledgerEntry = {
+      id: uuidv4(),
+      user_id: user.uid,
+      type: 'ADMIN_ADJUSTMENT',
+      amount: parseFloat(amount),
+      reason: reason,
+      admin_id: req.user.uid,
+      note: note || null,
+      created_at: new Date()
+    };
+
+    await client.query(
+      `INSERT INTO wallet_ledger (id, user_id, type, amount, reason, admin_id, note, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        ledgerEntry.id,
+        ledgerEntry.user_id,
+        ledgerEntry.type,
+        ledgerEntry.amount,
+        ledgerEntry.reason,
+        ledgerEntry.admin_id,
+        ledgerEntry.note,
+        ledgerEntry.created_at
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        newBalance: newBalance
+      },
+      ledger: ledgerEntry
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Token injection error:', error);
+    res.status(500).json({ error: 'Failed to inject tokens' });
+  } finally {
+    client.release();
+  }
+});
+
 const router = express.Router();
 
 // ============ HEALTH CHECK ============
