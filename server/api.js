@@ -11,6 +11,8 @@ import {
 } from './auth.js';
 import { v4 as uuidv4 } from 'uuid';
 
+const router = express.Router();
+
 // Admin endpoint: Inject tokens
 router.post('/admin/inject-tokens', authenticateMiddleware, adminMiddleware, async (req, res) => {
   const client = await pool.connect();
@@ -92,8 +94,6 @@ router.post('/admin/inject-tokens', authenticateMiddleware, adminMiddleware, asy
     client.release();
   }
 });
-
-const router = express.Router();
 
 // ============ HEALTH CHECK ============
 router.get('/health', async (req, res) => {
