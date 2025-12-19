@@ -1350,11 +1350,10 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                     </button>
                                 </div>
                             </div>
-                        )}
-                    </>
-                </div>
-            )}
-
+                            )}
+                            </div>
+                    )}
+                            
       {activeTab === 'feed' && (
         <div className="min-h-screen bg-zii-bg relative">
             <div className="p-4 pb-0 pt-6">
