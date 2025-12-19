@@ -1388,8 +1388,8 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                                 <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
-                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Coins size={20} className="text-zii-accent" /> Inject Coins to Users</h2>
-                                    <p className="text-xs text-white/40 mt-1">Credit coins directly to user accounts (Admin only).</p>
+                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Wallet size={20} className="text-zii-accent" /> User Balance Manager</h2>
+                                    <p className="text-xs text-white/40 mt-1">Inject coins directly into user accounts.</p>
                                 </div>
 
                                 {statusMsg && (
@@ -1433,7 +1433,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                                     placeholder="10.00" 
                                                 />
                                             </div>
-                                            <p className="text-[10px] text-white/30 pl-1">This will add USD to their game balance (coins).</p>
+                                            <p className="text-[10px] text-white/30 pl-1">This will add USD to their game balance.</p>
                                         </div>
 
                                         <button 
