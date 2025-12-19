@@ -1150,7 +1150,7 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                                 <div className="flex justify-between items-start mb-3">
                                                     <div>
                                                         <h3 className="font-bold text-white">{aff.name}</h3>
-                                                        <p className="text-xs text-white/50 font-mono tracking-wider">House Rev: <span className="text-green-400">+${houseRevenue.toFixed(2)}</span></p>
+                                                        <p className="text-xs text-white/40 font-mono tracking-wider">House Rev: <span className="text-green-400">+${houseRevenue.toFixed(2)}</span></p>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-xs text-white/40 uppercase font-bold mb-0.5">Owed</p>
