@@ -1388,8 +1388,8 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                                 <div className="bg-gradient-to-r from-zii-card to-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-zii-accent/5 blur-[50px] rounded-full pointer-events-none"></div>
-                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users size={20} className="text-zii-accent" /> User Management</h2>
-                                    <p className="text-xs text-white/40 mt-1">Add balance directly to user accounts.</p>
+                                    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Coins size={20} className="text-zii-accent" /> Add Coins to Users</h2>
+                                    <p className="text-xs text-white/40 mt-1">Credit coins directly to user accounts (Admin only).</p>
                                 </div>
 
                                 {selectedUser ? (
@@ -1400,57 +1400,82 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                                                     <h3 className="font-bold text-white">{selectedUser.name}</h3>
                                                     <p className="text-xs text-white/50">{selectedUser.email}</p>
                                                 </div>
-                                                <button type="button" onClick={() => setSelectedUser(null)} className="text-white/40 hover:text-white">
+                                                <button type="button" onClick={() => setSelectedUser(null)} className="text-white/40 hover:text-white transition-colors">
                                                     <X size={20} />
                                                 </button>
                                             </div>
                                             <div className="flex gap-2 text-xs text-white/60 mt-3">
-                                                <span>Balance: ${selectedUser.balance}</span>
+                                                <span>Balance: ${parseFloat(selectedUser.balance).toFixed(2)}</span>
                                                 <span>•</span>
-                                                <span>Winnings: ${selectedUser.winnings_balance}</span>
+                                                <span>Winnings: ${parseFloat(selectedUser.winnings_balance).toFixed(2)}</span>
                                             </div>
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add ($)</label>
+                                            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest pl-1">Amount to Add (Coins)</label>
                                             <div className="relative">
-                                                <Coins size={14} className="absolute left-3 top-3.5 text-white/30" />
-                                                <input required type="number" step="0.01" min="0" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono" placeholder="100.00" />
+                                                <Coins size={16} className="absolute left-3 top-3.5 text-white/30" />
+                                                <input 
+                                                    required 
+                                                    type="number" 
+                                                    step="1" 
+                                                    min="1" 
+                                                    value={creditAmount} 
+                                                    onChange={e => setCreditAmount(e.target.value)} 
+                                                    className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-zii-accent/50 transition-all font-mono text-lg" 
+                                                    placeholder="100" 
+                                                />
                                             </div>
+                                            <p className="text-[10px] text-white/30 pl-1">This will add coins to their game balance.</p>
                                         </div>
 
-                                        <button disabled={loading} className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20 active:scale-[0.98]">
-                                            {loading ? <Loader className="text-black" /> : <><Plus size={20} /> ADD BALANCE</>}
+                                        <button 
+                                            disabled={loading} 
+                                            className="w-full bg-zii-accent text-black font-bold text-lg py-4 rounded-2xl flex justify-center gap-2 hover:bg-white transition-colors shadow-lg shadow-zii-accent/20 active:scale-[0.98] disabled:opacity-50"
+                                        >
+                                            {loading ? <Loader className="text-black" /> : <><Plus size={20} /> ADD COINS</>}
                                         </button>
                                     </form>
                                 ) : (
-                                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                                        {loading ? (
-                                            <div className="text-center py-10">
-                                                <Loader className="text-zii-accent" />
-                                            </div>
-                                        ) : users.length === 0 ? (
-                                            <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No users found</div>
-                                        ) : (
-                                            users.map(user => (
-                                                <button
-                                                    key={user.uid}
-                                                    onClick={() => setSelectedUser(user)}
-                                                    className="w-full bg-zii-card hover:bg-white/10 border border-white/5 rounded-xl p-4 text-left transition-all active:scale-[0.98]"
-                                                >
-                                                    <div className="flex justify-between items-center">
-                                                        <div>
-                                                            <h3 className="font-bold text-white text-sm">{user.name}</h3>
-                                                            <p className="text-xs text-white/50">{user.email}</p>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center px-1">
+                                            <h3 className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Select User</h3>
+                                            <button 
+                                                onClick={fetchUsers} 
+                                                disabled={loading}
+                                                className="text-[10px] text-zii-accent uppercase font-bold tracking-widest flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50"
+                                            >
+                                                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                                            {loading ? (
+                                                <div className="text-center py-10">
+                                                    <Loader className="text-zii-accent" />
+                                                </div>
+                                            ) : users.length === 0 ? (
+                                                <div className="text-center py-10 text-white/30 text-sm bg-white/5 rounded-2xl border border-white/5 border-dashed">No users found</div>
+                                            ) : (
+                                                users.map(user => (
+                                                    <button
+                                                        key={user.uid}
+                                                        onClick={() => setSelectedUser(user)}
+                                                        className="w-full bg-zii-card hover:bg-white/10 border border-white/5 rounded-xl p-4 text-left transition-all active:scale-[0.98]"
+                                                    >
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <h3 className="font-bold text-white text-sm">{user.name}</h3>
+                                                                <p className="text-xs text-white/50">{user.email}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-sm font-bold text-white">${parseFloat(user.balance).toFixed(2)}</p>
+                                                                <p className="text-[10px] text-white/30 uppercase font-bold">Balance</p>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <p className="text-sm font-bold text-white">${parseFloat(user.balance).toFixed(2)}</p>
-                                                            <p className="text-[10px] text-white/30 uppercase font-bold">Balance</p>
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            ))
-                                        )}
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>
