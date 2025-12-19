@@ -1395,7 +1395,6 @@ export const AdminEngine: React.FC<AdminEngineProps> = ({ bypassAuth = false }) 
                       Resolved
                     </button>
                 </div>
-
             </div>
             <Feed adminMode={true} onPredictionClick={handlePredictionClick} adminStatusFilter={manageSubTab} />
         </div>
